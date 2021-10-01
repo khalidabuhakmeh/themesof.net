@@ -8,6 +8,7 @@ using Toolbelt.Blazor.Extensions.DependencyInjection;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["APPINSIGHTS_INSTRUMENTATIONKEY"]);
 builder.Services.AddServerSideBlazor();
 builder.Services.AddControllers();
 builder.Services.AddHostedService(p => p.GetRequiredService<GitHubEventProcessingService>());

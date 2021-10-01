@@ -12,6 +12,7 @@
     <PackageReference Include="AspNet.Security.OAuth.GitHub" Version="5.0.1" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
     <PackageReference Include="Octokit" Version="0.50.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.16.0" />
     <PackageReference Include="Terrajobst.GitHubEvents.AspNetCore" Version="0.1.11" />
     <PackageReference Include="Toolbelt.Blazor.HotKeys" Version="11.1.0" />
   </ItemGroup>
