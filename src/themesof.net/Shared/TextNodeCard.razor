@@ -1,0 +1,16 @@
+﻿@using ThemesOfDotNet.Indexing.WorkItems
+
+<div class="gh-issue d-flex flex-row">
+    <div>
+        <div>
+            <span class="gh-issue-title ml-1">
+                @Text
+            </span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Text { get; set; } = string.Empty;
+}

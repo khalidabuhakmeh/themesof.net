@@ -1,0 +1,123 @@
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@foreach (var node in Nodes)
+{
+    if (!node.IsVisible)
+        continue;
+
+    var areaNode = node.Data as AreaNode;
+    var workItem = node.Data as WorkItem;
+
+    if (areaNode is null && workItem is null)
+        continue;
+
+    var entry = workItem is null ? null : Roadmap.GetEntry(workItem);
+    var mutedClass = node.IsMuted ? "muted" : "";
+    var indentStyle = $"padding-left: {Level * 2 + .5:N2}rem;";
+    var glyph = node.IsExpanded ? "oi-minus" : "oi-plus";
+    var allowFocus = !node.IsExpanded ? "0" : null;
+    var visibleClass = node.Children.Any(c => c.IsVisible) ? "" : "invisible";
+
+    <tr class="@mutedClass">
+        <td style="@indentStyle">
+            <div class="d-flex flex-row">
+                <span tabIndex="@allowFocus" class="oi @glyph tree-toggle @visibleClass" @onclick="() => node.IsExpanded = !node.IsExpanded"></span>
+
+                @if (workItem is null)
+                {
+                    <span class="gh-issue-title ml-1">@areaNode!.Title</span>
+                }
+                else
+                {
+                    var icon = workItem.Kind.GetUrl();
+                    var iconTitle = workItem.Kind.Humanize();
+                    <img class="mx-2" width="32" height="32" src="@icon" title="@iconTitle" />
+
+                    @if (workItem.IsPrivate)
+                    {
+                        <span class="oi oi-lock-locked text-muted small mr-1"></span>
+                    }
+
+                    <a class="gh-issue-title" href="@workItem.Url">@workItem.Title</a>
+                }
+            </div>
+        </td>
+
+        @if (entry is null)
+        {
+            for (var i = 0; i < Roadmap.Milestones.Count + 2; i++)
+            {
+                <td></td>
+            }
+        }
+        else
+        {
+            var from = entry.Roadmap.Milestones.First();
+            var to = entry.Roadmap.Milestones.Last();
+            entry.GetStates(from, to, out var before, out var after, out var states);
+
+            var statesList = new List<WorkItemState?>(states.Length + 2);
+            statesList.Add(before?.State);
+            statesList.AddRange(states);
+            statesList.Add(after?.State);
+
+            states = statesList.ToArray();
+
+            var indexes = states.Select((s, i) => (State: s, Index: i))
+                                .Where(t => t.State is not null)
+                                .Select(t => t.Index)
+                                .DefaultIfEmpty(-1);
+
+            var startIndex = indexes.First();
+            var endIndex = indexes.Last();
+
+            if (startIndex >= 0 && states[startIndex] != WorkItemState.Proposed)
+                startIndex = 0;
+
+            if (endIndex >= 0 && states[endIndex] != WorkItemState.Completed && states[endIndex] != WorkItemState.Cut)
+                endIndex = states.Length - 1;
+
+            for (var i = 0; i < states.Length; i++)
+            {
+                var isInRange = i >= startIndex && i <= endIndex;
+                var milestone = i == 0
+                                    ? before?.Milestone
+                                    : i == states.Length - 1
+                                        ? after?.Milestone
+                                        : Roadmap.Milestones[i - 1];
+                var state = states[i];
+                var inRange = isInRange ? "in-range" : "";
+                var rangeStart = i == startIndex ? "range-start" : "";
+                var rangeEnd = i == endIndex ? "range-end" : "";
+
+                <td class="@inRange @rangeStart @rangeEnd">
+                    @if (state is not null)
+                    {
+                        var stateIcon = state.Value.GetUrl();
+                        var stateIconTitle = $"{state.Humanize()} since {milestone}";
+                        <img src="@stateIcon" title="@stateIconTitle" />
+                    }
+                </td>
+            }
+        }
+    </tr>
+
+    @if (node.IsExpanded)
+    {
+        <RoadmapRowView Level="@(Level + 1)"
+                        Roadmap="@Roadmap"
+                        Nodes="@node.Children" />
+    }
+}
+
+@code {
+    [Parameter]
+    public int Level { get; set; }
+
+    [Parameter]
+    public WorkItemRoadmap Roadmap { get; set; } = WorkItemRoadmap.Empty;
+
+    [Parameter]
+    public IReadOnlyList<PageNode> Nodes { get; set; } = Array.Empty<PageNode>();
+}

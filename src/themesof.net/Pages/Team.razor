@@ -1,0 +1,537 @@
+@page "/team"
+
+@attribute [Authorize(Roles="product-team")]
+
+@using System.Diagnostics.CodeAnalysis
+@using System.Globalization;
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@inject WorkspaceService WorkspaceService;
+@inject QueryContextProvider QueryContextProvider;
+@inject NavigationManager NavigationManager;
+
+@if (SelectedTeam is null)
+{
+    <div class="info">
+        <p>No teams found, sorry.</p>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-lg">
+            <div class="form-group row">
+                <label for="team" class="col-sm-2 col-form-label">Team</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="team" @bind="SelectedTeam">
+                        @foreach (var team in AllTeams)
+                        {
+                            <option value="@team">@team</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="area" class="col-sm-2 col-form-label">Area</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="area" @bind="SelectedArea">
+                        <option value="*">(all)</option>
+                        <option value="">(none)</option>
+                        @foreach (var area in MyAreas)
+                        {
+                            <option value="@area">@area</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="milestone" class="col-sm-2 col-form-label">Milestone</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="milestone" @bind="SelectedMilestone">
+                        <option value="*">(all)</option>
+                        <option value="">(none)</option>
+                        @foreach (var milestone in MyMilestone)
+                        {
+                            <option value="@milestone">@milestone</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="statusSummarySince" class="col-sm-2 col-form-label">Status since</label>
+                <div class="col-sm-auto form-inline">
+                   <input type="date" class="form-control" id="statusSummarySince" @bind="Since">
+                    <div class="form-check ml-2">
+                        <input type="checkbox" class="form-check-input" id="filterToChangesCheckbox" @bind="StatusSinceFiltered">
+                        <label class="form-check-label" for="filterToChangesCheckbox">Filter to status changes</label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-auto">
+            <table class="table table-bordered small">
+                <thead>
+                    <tr>
+                        <td></td>
+                        <td><img width="16" src="@(WorkItemState.Proposed.GetUrl())" title="Proposed" /></td>
+                        <td><img width="16" src="@(WorkItemState.Committed.GetUrl())" title="Committed" /></td>
+                        <td><img width="16" src="@(WorkItemState.InProgress.GetUrl())" title="InProgress" /></td>
+                        <td><img width="16" src="@(WorkItemState.Completed.GetUrl())" title="Completed" /></td>
+                        <td><img width="16" src="@(WorkItemState.Cut.GetUrl())" title="Cut" /></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>Themes</th>
+                        <td>@GetStat(WorkItemKind.Theme, WorkItemState.Proposed)</td>
+                        <td>@GetStat(WorkItemKind.Theme, WorkItemState.Committed)</td>
+                        <td>@GetStat(WorkItemKind.Theme, WorkItemState.InProgress)</td>
+                        <td>@GetStat(WorkItemKind.Theme, WorkItemState.Completed)</td>
+                        <td>@GetStat(WorkItemKind.Theme, WorkItemState.Cut)</td>
+                    </tr>
+                    <tr>
+                        <th>Epics</th>
+                        <td>@GetStat(WorkItemKind.Epic, WorkItemState.Proposed)</td>
+                        <td>@GetStat(WorkItemKind.Epic, WorkItemState.Committed)</td>
+                        <td>@GetStat(WorkItemKind.Epic, WorkItemState.InProgress)</td>
+                        <td>@GetStat(WorkItemKind.Epic, WorkItemState.Completed)</td>
+                        <td>@GetStat(WorkItemKind.Epic, WorkItemState.Cut)</td>
+                    </tr>
+                    <tr>
+                        <th>User Stories</th>
+                        <td>@GetStat(WorkItemKind.UserStory, WorkItemState.Proposed)</td>
+                        <td>@GetStat(WorkItemKind.UserStory, WorkItemState.Committed)</td>
+                        <td>@GetStat(WorkItemKind.UserStory, WorkItemState.InProgress)</td>
+                        <td>@GetStat(WorkItemKind.UserStory, WorkItemState.Completed)</td>
+                        <td>@GetStat(WorkItemKind.UserStory, WorkItemState.Cut)</td>
+                    </tr>
+                    <tr>
+                        <th>Tasks</th>
+                        <td>@GetStat(WorkItemKind.Task, WorkItemState.Proposed)</td>
+                        <td>@GetStat(WorkItemKind.Task, WorkItemState.Committed)</td>
+                        <td>@GetStat(WorkItemKind.Task, WorkItemState.InProgress)</td>
+                        <td>@GetStat(WorkItemKind.Task, WorkItemState.Completed)</td>
+                        <td>@GetStat(WorkItemKind.Task, WorkItemState.Cut)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <PageTreeToolbar ExpandAllClicked="() => PageTree.ExpandAll()"
+                     CollapseAllClicked="() => PageTree.CollapseAll()"
+                     ExpandUnmatchedClicked="() => PageTree.ExpandUnmatched()"
+                     @bind-QuickFilter="QuickFilter" />
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link @(SelectedTab == 0 ? "active" : "")" href="#" @onclick="_ => SelectedTab = 0" @onclick:preventDefault>My Work</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(SelectedTab == 1 ? "active" : "")" href="#" @onclick="_ => SelectedTab = 1" @onclick:preventDefault title="What work does my team depend on that is being delivered by another team?" >My dependencies</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(SelectedTab == 2 ? "active" : "")" href="#" @onclick="_ => SelectedTab = 2" @onclick:preventDefault title="Which other teams depend on work that is being delivered by my team?">My dependents</a>
+        </li>
+    </ul>
+
+    <div class="row">
+        <CascadingValue Name="ChangeGlyphsSince" Value="@Since">
+            <PageTreeView Tree="@PageTree.Roots" />
+        </CascadingValue>
+    </div>
+}
+
+@code {
+
+    private bool _parametersSet;
+    private string? _selectedTeam;
+    private string _selectedArea;
+    private string _selectedMilestone;
+    private DateTimeOffset _since;
+    private bool _statusSinceFiltered;
+    private string _quickFilter;
+    private int _selectedTab;
+
+    private WorkItemQuery _quickFilterQuery = WorkItemQuery.Empty;
+    private string _pageTreeTeam = string.Empty;
+    private string _pageTreeArea = string.Empty;
+    private string _pageTreeMilestone = string.Empty;
+    private DateTimeOffset _pageSince;
+    private bool _pageSinceFiltered;
+    private int _pageTreeTab;
+
+    public IReadOnlyList<string> AllTeams { get; set; } = Array.Empty<string>();
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? SelectedTeam
+    {
+        get => _selectedTeam;
+        set
+        {
+            if (_selectedTeam != value)
+            {
+                _selectedTeam = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "area")]
+    [NotNull]
+    public string? SelectedArea
+    {
+        get => _selectedArea;
+        set
+        {
+            if (value is null)
+                value = "*";
+
+            if (_selectedArea != value)
+            {
+                _selectedArea = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "milestone")]
+    [NotNull]
+    public string? SelectedMilestone
+    {
+        get => _selectedMilestone;
+        set
+        {
+            if (value is null)
+                value = "*";
+
+            if (_selectedMilestone != value)
+            {
+                _selectedMilestone = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "status-since")]
+    public string? QuerySince
+    {
+        get => Since.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        set
+        {
+            if (DateTimeOffset.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var since))
+                Since = since;
+        }
+    }
+
+    public DateTimeOffset Since
+    {
+        get => _since;
+        set
+        {
+            if (_since != value)
+            {
+                _since = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "status-only")]
+    public bool StatusSinceFiltered
+    {
+        get => _statusSinceFiltered;
+        set
+        {
+            if (_statusSinceFiltered != value)
+            {
+                _statusSinceFiltered = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name="q")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "tab")]
+    public int SelectedTab
+    {
+        get => _selectedTab;
+        set
+        {
+            if (_selectedTab != value)
+            {
+                _selectedTab = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    public IReadOnlyList<string> MyAreas { get; set; } = Array.Empty<string>();
+
+    public IReadOnlyList<WorkItemMilestone> MyMilestone { get; set; } = Array.Empty<WorkItemMilestone>();
+
+    public PageTree PageTree { get; set; } = PageTree.Empty;
+
+    public Dictionary<(WorkItemKind, WorkItemState), int>? Stats { get; set; }
+
+    public Team()
+    {
+        _selectedArea = "*";
+        _selectedMilestone = "*";
+        _quickFilter = string.Empty;
+        _since = DateTime.UtcNow.Date.AddDays(-21);
+    }
+
+    protected override void OnInitialized()
+    {
+        var workspace = WorkspaceService.Workspace;
+        AllTeams = workspace.WorkItems.SelectMany(wi => wi.Teams)
+                                      .OrderBy(t => t)
+                                      .Distinct(StringComparer.OrdinalIgnoreCase)
+                                      .ToArray();
+    }
+
+    protected override void OnParametersSet()
+    {
+        var teamFound = false;
+
+        foreach (var team in AllTeams)
+        {
+            if (string.Equals(team, SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            {
+                teamFound = true;
+                SelectedTeam = team;
+                break;
+            }
+        }
+
+        if (!teamFound)
+            SelectedTeam = AllTeams.FirstOrDefault();
+
+        _parametersSet = true;
+        UpdateDashboard();
+    }
+
+    private void UpdateDashboard()
+    {
+        if (SelectedTeam is null)
+        {
+            MyAreas = Array.Empty<string>();
+            MyMilestone = Array.Empty<WorkItemMilestone>();
+            SelectedArea = "*";
+            SelectedMilestone = "*";
+            PageTree = PageTree.Empty;
+            return;
+        }
+
+        var pageTreeValid = _pageTreeTeam == SelectedTeam &&
+                            _pageTreeArea == SelectedArea &&
+                            _pageTreeMilestone == SelectedMilestone &&
+                            _pageSince == Since &&
+                            _pageSinceFiltered == StatusSinceFiltered &&
+                            _pageTreeTab == SelectedTab;
+
+        if (!pageTreeValid)
+        {
+            var workspace = WorkspaceService.Workspace;
+            var myWorkItems = workspace.WorkItems.Where(wi => wi.IsOpen && wi.Teams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase))
+                                                 .ToArray();
+
+            MyAreas = myWorkItems.SelectMany(wi => wi.Areas)
+                                 .Distinct()
+                                 .OrderBy(a => a)
+                                 .ToArray();
+
+            MyMilestone = myWorkItems.Where(wi => wi.Milestone is not null)
+                                     .Select(wi => wi.Milestone!)
+                                     .Distinct()
+                                     .OrderBy(m => m.Product.Name)
+                                     .ThenByDescending(m => m.Version)
+                                     .ToArray();
+
+            if (SelectedArea.Length > 0 && SelectedArea != "*" && !MyAreas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
+                SelectedArea = "*";
+
+            if (SelectedMilestone.Length > 0 && SelectedMilestone != "*" && !MyMilestone.Any(m => string.Equals(m.ToString(), SelectedMilestone, StringComparison.OrdinalIgnoreCase)))
+                SelectedMilestone = "*";
+
+            if (SelectedTab == 0)
+                PageTree = PageTree.CreateTree(workspace, WorkItemAccessCheck.All.Perform);
+            else if (SelectedTab == 1)
+                PageTree = PageTree.CreateTeamDependencies(workspace, WorkItemAccessCheck.All.Perform, SelectedTeam);
+            else if (SelectedTab == 2)
+                PageTree = PageTree.CreateTeamDependents(workspace, WorkItemAccessCheck.All.Perform, SelectedTeam);
+        
+            PageTree = PageTree.Filter(IncludeNode);   
+
+            _pageTreeTeam = SelectedTeam;
+            _pageTreeArea = SelectedArea;
+            _pageTreeMilestone = SelectedMilestone;
+            _pageSince = Since;
+            _pageSinceFiltered = StatusSinceFiltered;
+            _pageTreeTab = SelectedTab;
+        }
+
+        _quickFilterQuery = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+
+        if (_quickFilterQuery.Text.Length == 0)
+            PageTree.ApplyQuickFilter(null);
+        else
+            PageTree.ApplyQuickFilter(IsIncludedByQuickFilter);
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdateDashboard();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["name"] = SelectedTeam,
+            ["area"] = SelectedArea == "*" ? null : SelectedArea,
+            ["milestone"] = SelectedMilestone == "*" ? null : SelectedMilestone,
+            ["tab"] = SelectedTab == 0 ? null : SelectedTab,
+            ["status-since"] = QuerySince,
+            ["status-only"] = StatusSinceFiltered ? true : null,
+            ["q"] = QuickFilter.Length == 0 ? null : QuickFilter
+        };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private bool IncludeNode(PageNode? parent, PageNode node)
+    {
+        if (node.Data is not WorkItem workItem)
+            return false;
+
+        if (!IncludeWorkItem(workItem))
+            return false;
+
+        if (SelectedTab == 0)
+            return IsForMyTeam(workItem);
+
+        if (SelectedTab == 1)
+        {
+            if (parent?.Data is not WorkItem parentWorkItem)
+                return false;
+
+            return IsForMyTeam(parentWorkItem) &&
+                   IsNotForMyTeam(workItem);
+        }
+
+        if (SelectedTab == 2)
+        {
+            if (parent?.Data is not WorkItem parentWorkItem)
+                return false;
+
+            return IsNotForMyTeam(parentWorkItem) &&
+                   IsForMyTeam(workItem);
+        }
+
+        return true;
+    }
+
+    private bool IncludeWorkItem(WorkItem workItem)
+    {
+        if (!workItem.IsOpen)
+            return false;
+
+        if (!IncludeMilestone(workItem.Milestone))
+            return false;
+
+        if (!workItem.Areas.Any(a => IncludeArea(a)))
+            return false;
+
+        if (StatusSinceFiltered)
+        {
+            var hasStatusChanges = workItem.Changes.Where(c => c.Kind == WorkItemChangeKind.StateChanged ||
+                                                               c.Kind == WorkItemChangeKind.CostChanged ||
+                                                               c.Kind == WorkItemChangeKind.PriorityChanged ||
+                                                               c.Kind == WorkItemChangeKind.MilestoneChanged)
+                                                   .Any(c => c.When >= Since);
+            if (!hasStatusChanges)
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool IsForMyTeam(WorkItem workItem)
+    {
+        return workItem.Teams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private bool IsNotForMyTeam(WorkItem workItem)
+    {
+        return workItem.Teams.Any() &&
+               !workItem.Teams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private bool IncludeMilestone(WorkItemMilestone? milestone)
+    {
+        if (SelectedMilestone is null || SelectedMilestone == "*")
+            return true;      
+
+        return string.Equals(milestone?.ToString() ?? string.Empty, SelectedMilestone, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IncludeArea(string area)
+    {
+        if (SelectedArea is null || SelectedArea == "*")
+            return true;      
+
+        return string.Equals(area, SelectedArea, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsIncludedByQuickFilter(PageNode node)
+    {
+        return node.Data is WorkItem workItem &&
+               _quickFilterQuery.Evaluate(workItem);
+    }
+
+    private int? GetStat(WorkItemKind kind, WorkItemState state)
+    {
+        var result = WorkspaceService.Workspace
+                                     .WorkItems
+                                     .Where(wi => IsForMyTeam(wi) &&
+                                                  IncludeMilestone(wi.Milestone) &&
+                                                  wi.Areas.Any(a => IncludeArea(a)))
+                                     .Count(wi => wi.Kind == kind && wi.State == state);
+        return result == 0 ? null : result;
+    }
+}

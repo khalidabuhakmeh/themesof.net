@@ -1,0 +1,153 @@
+﻿@page "/query"
+@using ThemesOfDotNet.Services;
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying;
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@inject WorkspaceService WorkspaceService;
+@inject WorkItemAccessCheckService WorkItemAccessCheckService;
+@inject NavigationManager NavigationManager;
+@inject QueryContextProvider QueryContextProvider;
+
+<div class="row mb-3">
+    <WorkItemFilter IsQuery="@true" @bind-Filter="QueryText" />
+</div>
+
+<PageTreeToolbar ExpandAllClicked="() => _pageTree.ExpandAll()"
+                 CollapseAllClicked="() => _pageTree.CollapseAll()"
+                 ExpandUnmatchedClicked="() => _pageTree.ExpandUnmatched()"
+                 @bind-QuickFilter="QuickFilter" />
+
+<PageTreeView Tree="@_pageTree.Roots" />
+
+@code {
+    private const string QueryTextDefault = "group:theme is:open -is:task -is:bottomup milestone:>=6.0 milestone:<7.0";
+
+    private bool _parametersSet;
+    private string _queryText = string.Empty;
+    private string _quickFilter = string.Empty;
+    private WorkItemAccessCheck _accessCheck = WorkItemAccessCheck.None;
+
+    private WorkItemQuery _query = WorkItemQuery.Empty;
+    private WorkItemQuery _quickFilterQuery = WorkItemQuery.Empty;
+    private PageTree _pageTree = PageTree.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name="q")]
+    public string QueryText
+    {
+        get => _queryText;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+                value = QueryTextDefault;
+
+            if (_queryText != value)
+            {
+                _queryText = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name="f")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accessCheck = await WorkItemAccessCheckService.CreateAsync();
+        UpdatePageTree();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _parametersSet = true;
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdatePageTree();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["q"] = QueryText == QueryTextDefault ? null : QueryText,
+            ["f"] = QuickFilter.Length == 0 ? null : QuickFilter
+        };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private void UpdatePageTree()
+    {
+        if (_query.Text != QueryText)
+        {
+            _query = new WorkItemQuery(QueryContextProvider.Context, QueryText);
+
+            var tree = _query.Grouping switch
+            {
+                WorkItemGrouping.Parent => PageTree.CreateTree(WorkspaceService.Workspace, _accessCheck.Perform),
+                WorkItemGrouping.Theme => PageTree.CreateThematicTree(WorkspaceService.Workspace, _accessCheck.Perform),
+                WorkItemGrouping.Area => PageTree.CreateAreaTree(WorkspaceService.Workspace, _accessCheck.Perform),
+                _ => PageTree.CreateFlat(WorkspaceService.Workspace, _accessCheck.Perform)
+            };
+
+            _pageTree = tree.Filter(ShouldInclude);
+        }
+
+        _quickFilterQuery = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+
+        if (_quickFilterQuery.Text.Length == 0)
+            _pageTree.ApplyQuickFilter(null);
+        else
+            _pageTree.ApplyQuickFilter(IsIncludedByQuickFilter);
+    }
+
+    private bool ShouldInclude(PageNode node)
+    {
+        if (node.Data is WorkItem workItem)
+            return ShouldInclude(workItem);
+
+        if (node.Data is AreaNode areaNode)
+            return ShouldInclude(areaNode);
+
+        return true;
+    }
+
+    private bool ShouldInclude(WorkItem workItem)
+    {
+        return _query.Evaluate(workItem);
+    }
+
+    private bool ShouldInclude(AreaNode areaNode)
+    {
+        return _query.Text.Length == 0;
+    }
+
+    private bool IsIncludedByQuickFilter(PageNode page)
+    {
+        return page.Data is WorkItem workItem &&
+               _quickFilterQuery.Evaluate(workItem);
+    }
+}

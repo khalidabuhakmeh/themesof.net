@@ -1,0 +1,142 @@
+@page "/about"
+
+<div class="container">
+
+<h3>Summary</h3>
+<p>
+    We use GitHub issues and milestones to track our work. We use four categories of issues:
+</p>
+<ul>
+    <li>
+        <p>
+            <strong>Theme</strong>. These are big initiatives, each will have a dedicated document
+            and owner. These are often cross-cutting features across the product. We'll have very
+            few of these (less than ten per release usually).
+        </p>
+    </li>
+    <li>
+        <p>
+            <strong>Epic</strong>. This is a higher level grouping of related user stories, it
+            can span up to the entire release.
+        </p>
+    </li>
+    <li>
+        <p>
+            <strong>User story</strong>. An explanation of the feature written from the perspective
+            of the end user. Its purpose is to articulate how a software feature will provide value
+            to the customer. Once implemented, it will contribute value towards the overall epic.
+        </p>
+    </li>
+    <li>
+        <p>
+            <strong>Task</strong>. These are all other work items. These could be bugs, features, or
+            developer tasks. We leave it up to the engineering team/area owner how and if
+            they want to use these.
+        </p>
+    </li>
+</ul>
+
+<h3>Issue types</h3>
+
+<p>
+    The type of an issue in GitHub is tracked via a label. Each issue should only have a single
+    one of these labels:
+</p>
+<ul>
+    <li>
+        <code>Theme</code>
+    </li>
+    <li>
+        <code>Epic</code>
+    </li>
+    <li>
+        <code>User Story</code>
+    </li>
+    <li>
+        If no label is present, the issue is assumed to be a <em>Task</em>.
+    </li>
+</ul>
+<p>
+    It is expected that a <code>Theme</code> is decomposed into multiple <code>Epic</code>
+    issues, each of which in turn are decomposed into multiple <code>User Story</code>
+    issues.
+</p>
+
+<h3>Status labels</h3>
+
+<ul>
+    <li><code>status:proposed</code>. Indicates that the work is proposed, pending reviews.</li>
+    <li><code>status:committed</code>. Indicates that we itend to deliver this work.</li>
+    <li><code>status:in-progress</code>. In dicates that the work has started.</li>
+    <li><code>status:completed</code>. Indicates that the work is completed.</li>
+    <li><code>status:cut</code>. Indicates that we no longer plan to complete this work.</li>
+</ul>
+
+<div class="alert alert-info small">
+    <ul class="m-0 pl-3">
+        <li>
+            Open issues should be marked as either <code>proposed</code>, <code>committed</code>,
+            or <code>in-progress</code>.
+        </li>
+        <li>
+            Closed issues should be marked as either <code>completed</code> or <code>cut</code>.
+        </li>
+    </ul>
+</div>
+
+<h3>Cost labels</h3>
+
+<ul>
+    <li><code>Cost:S</code></li>
+    <li><code>Cost:M</code></li>
+    <li><code>Cost:L</code></li>
+    <li><code>Cost:XL</code></li>
+</ul>
+
+<h3>Priority labels</h3>
+
+<ul>
+    <li><code>Priority:0</code></li>
+    <li><code>Priority:1</code></li>
+    <li><code>Priority:2</code></li>
+    <li><code>Priority:3</code></li>
+</ul>
+
+<div class="alert alert-info small">
+    Lower priority values are considered more important.
+</div>
+
+<h3>Parent/child relationships</h3>
+
+The children of an issue are found by parsing the markdown of the issue description. In order to link a child,
+you need to include it in task list. Any of the following links are recognized:
+
+<pre class="m-3"><code>- [ ] #123
+- [ ] org/repo#123
+- [ ] https://github.com/org/repo/issues/123
+- [ ] [SomeLink](https://github.com/org/repo/issues/123)
+</code></pre>
+
+It is also possible to link a parent issue. This is useful when the child is in a private repository while the 
+parent is in public repository. This avoids having to publicy link to a private issue. This is done by putting
+a link like this anywhere in the child's issue description:
+
+<pre class="m-3"><code>[Parent](https://github.com/org/repo/issues/123)</code></pre>
+
+<h3>Teams and areas</h3>
+
+<p>
+    For the most part, your issues should be automatically tagged with the corresponding area and team, based on
+    the subscription configuration, which can be found in the (private) repo here:
+</p>
+<p class="ml-5">
+    <a href="https://github.com/terrajobst/themesof.net-crawler/blob/main/subscriptions.json">https://github.com/terrajobst/themesof.net-crawler/blob/main/subscriptions.json</a>
+</p>
+<p>
+    This file lets you automatically map issues to areas and teams based on repo and <code>area:</code> path labels.
+    Teams are generally associated with a list of areas. However, you can still label an issue explicitly for a
+    team by applying a label like <code>Team:Libraries</code>. This is useful for themes and epics that live in
+    an other unrelated repo for your team.
+</p>
+
+</div>

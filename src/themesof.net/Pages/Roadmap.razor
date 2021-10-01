@@ -1,0 +1,337 @@
+@page "/roadmap"
+
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying;
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@inject WorkspaceService WorkspaceService;
+@inject WorkItemAccessCheckService WorkItemAccessCheckService;
+@inject QueryContextProvider QueryContextProvider;
+@inject NavigationManager NavigationManager;
+
+<div class="form-group row">
+    <label for="selectedProduct" class="col-sm-2 col-form-label">Product</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="selectedProduct" @bind="SelectedProduct">
+            @foreach (var product in _products)
+            {
+                <option value="@product">@product</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
+    <label for="selectedRelease" class="col-sm-2 col-form-label">Release</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="selectedRelease" @bind="SelectedRelease">
+            @foreach (var release in _productReleases)
+            {
+                <option value="@release">@release</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
+    <label for="selectedMilestone" class="col-sm-2 col-form-label">Milestone</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="selectedMilestone" @bind="SelectedMilestone">
+            <option value="">(All)</option>
+            @foreach (var milestone in _productMiletones)
+            {
+                <option value="@milestone">@milestone</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
+    <div class="col-sm-2"></div>
+    <div class="col-sm-10">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="finishedItemsOnly" @bind="ShowFinishedItemsOnly">
+            <label class="form-check-label" for="finishedItemsOnly">
+                Show finished items only
+            </label>
+        </div>
+    </div>
+</div>
+
+<PageTreeToolbar ExpandAllClicked="() => _tree.ExpandAll()"
+                 CollapseAllClicked="() => _tree.CollapseAll()"
+                 @bind-QuickFilter="QuickFilter" />
+
+<table class="table table-striped">
+    <thead class="sticky-top">
+        <tr>
+            <th>Work Item</th>
+            <th class="text-center">Before</th>
+            @foreach (var milestone in _roadmap.Milestones)
+            {
+                <th class="text-center">@milestone.Version</th>
+            }
+            <th class="text-center">After</th>
+        </tr>
+    </thead>
+    <tbody class=overflow-auto>
+        <RoadmapRowView Roadmap="@_roadmap"
+                        Nodes="@_tree.Roots" />
+    </tbody>
+</table>
+
+@code {
+    private bool _parametersSet;
+    private string _selectedProduct = string.Empty;
+    private string _selectedRelease = string.Empty;
+    private int _selectedReleaseMajor;
+    private int _selectedReleaseMinor;
+    private string _selectedMilestone = string.Empty;
+    private bool _showFinishedItemsOnly;
+    private string _quickFilter = string.Empty;
+    private WorkItemAccessCheck _accessCheck = WorkItemAccessCheck.None;
+    private IReadOnlyList<WorkItemProduct> _products = Array.Empty<WorkItemProduct>();
+    private IReadOnlyList<string> _productReleases = Array.Empty<string>();
+    private IReadOnlyList<string> _productMiletones = Array.Empty<string>();
+
+    private PageTree _tree = PageTree.Empty;
+    private string _treeProduct = string.Empty;
+    private string _treeRelease = string.Empty;
+    private string _treeMilestone = string.Empty;
+    private bool _treeShowFinishedItemsOnly;
+    private WorkItemRoadmap _roadmap = WorkItemRoadmap.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "product")]
+    public string SelectedProduct
+    {
+        get => _selectedProduct;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedProduct != value)
+            {
+                _selectedProduct = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "release")]
+    public string SelectedRelease
+    {
+        get => _selectedRelease;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedRelease != value)
+            {
+                _selectedRelease = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "milestone")]
+    public string SelectedMilestone
+    {
+        get => _selectedMilestone;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedMilestone != value)
+            {
+                _selectedMilestone = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "finished-only")]
+    public bool ShowFinishedItemsOnly
+    {
+        get => _showFinishedItemsOnly;
+        set
+        {
+            if (_showFinishedItemsOnly != value)
+            {
+                _showFinishedItemsOnly = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "q")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accessCheck = await WorkItemAccessCheckService.CreateAsync();
+        _products = WorkspaceService.Workspace.Products;
+    }
+
+    protected override void OnParametersSet()
+    {
+        _parametersSet = true;
+        UpdateTree();
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdateTree();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+            {
+                ["product"] = SelectedProduct.Length == 0 ? null : SelectedProduct,
+                ["release"] = SelectedRelease.Length == 0 ? null : SelectedRelease,
+                ["milestone"] = SelectedMilestone.Length == 0 ? null : SelectedMilestone,
+                ["finished-only"] = !ShowFinishedItemsOnly ? null : ShowFinishedItemsOnly,
+                ["q"] = QuickFilter.Length == 0 ? null : QuickFilter
+            };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private void UpdateTree()
+    {
+        if (_selectedProduct.Length == 0)
+            _selectedProduct = _products.First().Name;
+
+        var product = _products.Single(p => p.Name == _selectedProduct);
+
+        _productReleases = product.Milestones.OrderByDescending(m => m.Version)
+                                             .Select(m => $"{m.Version.Major}.{m.Version.Minor}")
+                                             .Distinct()
+                                             .ToArray();
+
+        if (!_productReleases.Contains(_selectedRelease))
+            _selectedRelease = _productReleases.First();
+
+        var parts = _selectedRelease.Split(".");
+        _selectedReleaseMajor = int.Parse(parts[0]);
+        _selectedReleaseMinor = int.Parse(parts[1]);
+
+        _productMiletones = product.Milestones.Where(m => m.Version.Major == _selectedReleaseMajor &&
+                                                          m.Version.Minor == _selectedReleaseMinor &&
+                                                          m.Version.Build == 0)
+                                              .OrderByDescending(m => m.Version)
+                                              .Select(m => m.Version.ToString())
+                                              .ToArray();
+
+        if (_selectedMilestone.Length > 0 && !_productMiletones.Contains(_selectedMilestone))
+            _selectedMilestone = string.Empty;
+
+        var treeIsValid = _treeProduct == SelectedProduct &&
+                          _treeRelease == SelectedRelease &&
+                          _treeMilestone == SelectedMilestone &&
+                          _treeShowFinishedItemsOnly == ShowFinishedItemsOnly;
+
+        if (!treeIsValid)
+        {
+            _roadmap = WorkItemRoadmap.Create(WorkspaceService.Workspace, product, IsIncluded);
+            _tree = PageTree.CreateAreaTree(WorkspaceService.Workspace, _accessCheck.Perform)
+                            .Filter(IsIncluded);
+
+            _treeProduct = SelectedProduct;
+            _treeRelease = SelectedRelease;
+            _treeMilestone = SelectedMilestone;
+            _treeShowFinishedItemsOnly = ShowFinishedItemsOnly;
+        }
+
+        var quickFilterQuery = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+
+        if (quickFilterQuery.Text.Length == 0)
+            _tree.ApplyQuickFilter(null);
+        else
+            _tree.ApplyQuickFilter(n => n.Data is WorkItem wi && quickFilterQuery.Evaluate(wi));
+    }
+
+    private bool IsIncluded(WorkItemMilestone milestone)
+    {
+        if (!string.Equals(milestone.Product.Name, _selectedProduct))
+            return false;
+
+        if (milestone.Version.Major != _selectedReleaseMajor ||
+            milestone.Version.Minor != _selectedReleaseMinor ||
+            milestone.Version.Build != 0)
+            return false;
+
+        if (_selectedMilestone.Length > 0 && milestone.Version.ToString() != _selectedMilestone)
+            return false;
+
+        return true;
+    }
+
+    private bool IsIncluded(PageNode node)
+    {
+        if (node.Data is WorkItem workItem)
+            return IsIncluded(workItem);
+
+        if (node.Data is AreaNode areaNode)
+            return node.Children.Any(IsIncluded);
+
+        return false;
+    }
+
+    private bool IsIncluded(WorkItem workItem)
+    {
+        if (_roadmap is null || _roadmap.Milestones.Count == 0)
+            return false;
+
+        var entry = _roadmap.GetEntry(workItem);
+        if (entry is null || entry.States.Count == 0)
+            return false;
+
+        var releaseStart = entry.Roadmap.Milestones.First().Version;
+        var releaseEnd = entry.Roadmap.Milestones.Last().Version;
+
+        var (earliestMilestone, _) = entry.States.First();
+        var (latestMilestone, latestState) = entry.States.Last();
+
+        var overlaps = earliestMilestone.Version <= releaseEnd &&
+                       latestMilestone.Version >= releaseStart;
+
+        if (!overlaps)
+            return false;
+
+        if (_showFinishedItemsOnly)
+        {
+            var (_, latestReleaseState) = entry.GetState(_roadmap.Milestones.Last());
+            if (latestReleaseState != WorkItemState.Completed && latestReleaseState != WorkItemState.Cut)
+                return false;
+        }
+
+        return true;
+    }
+}

@@ -1,0 +1,99 @@
+﻿@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@if (Tree is not null && Tree.Any())
+{
+    <ul class="tree">
+        @foreach (var pageNode in Tree)
+        {
+            if (!pageNode.IsVisible)
+                continue;
+
+            var isExpanded = pageNode.IsExpanded;
+            var stateClass = isExpanded ? "node-open" : "node-closed";
+            var mutedClass = pageNode.IsMuted ? "muted" : "";
+            var glyph = isExpanded ? "oi-minus" : "oi-plus";
+            var allowFocus = !isExpanded ? "0" : null;
+            var visibleClass = pageNode.Children.Any(c => c.IsVisible) ? "" : "invisible";
+
+            <li class="@stateClass">
+
+                <div class="d-flex flex-row">
+                    <span tabIndex="@allowFocus" class="oi @glyph tree-toggle @visibleClass" @onclick="e => PageNodeClicked(pageNode, e)"></span>
+
+                    <div class="@mutedClass">
+                        @if (pageNode.Data is WorkItem workItem)
+                        {
+                            <WorkItemCard WorkItem="@workItem" />
+                        }
+                        else if (pageNode.Data is AreaNode areaNode)
+                        {
+                            <TextNodeCard Text="@areaNode.Title" />
+                        }
+                        else if (pageNode.Data is string text)
+                        {
+                            <TextNodeCard Text="@text" />
+                        }                   
+                    </div>
+                </div>
+
+                @if (isExpanded)
+                {
+                    <PageTreeView Tree="@pageNode.Children" />
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public IEnumerable<PageNode>? Tree { get; set; }
+
+    private void PageNodeClicked(PageNode sender, MouseEventArgs e)
+    {
+        if (e.CtrlKey)
+            ToggleAll(sender);
+        else
+            sender.IsExpanded = !sender.IsExpanded;
+    }
+
+    private static void ToggleAll(PageNode node)
+    {
+        if (node.IsExpanded)
+        {
+            var anythingCollapsed = false;
+            foreach (var child in node.Children)
+                anythingCollapsed |= CollapseAll(child);
+
+            if (!anythingCollapsed)
+                node.IsExpanded = false;
+        }
+        else if (!CollapseAll(node))
+        {       
+            ExpandAll(node);
+        }
+    }
+
+    private static bool CollapseAll(PageNode node)
+    {
+        if (!node.Children.Any())
+            return false;
+
+        var anthingCollapsed = node.IsExpanded;
+    
+        foreach (var child in node.Children)
+            anthingCollapsed |= CollapseAll(child);
+
+        node.IsExpanded = false;
+
+        return anthingCollapsed;
+    }
+
+    private static void ExpandAll(PageNode node)
+    {
+        node.IsExpanded = true;
+        foreach (var child in node.Children)
+            ExpandAll(child);
+    }
+}

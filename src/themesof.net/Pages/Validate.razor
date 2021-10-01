@@ -1,0 +1,63 @@
+﻿@page "/validate"
+@attribute [Authorize(Roles = "product-team")]
+
+@using ThemesOfDotNet.Services;
+@using ThemesOfDotNet.Indexing.Querying
+
+@inject ValidationService validationService;
+@inject NavigationManager NavigationManager;
+@inject QueryContextProvider QueryContextProvider;
+
+<div class="row mb-3">
+    <DiagnosticFilter @bind-QuickFilter="QueryText" />
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Message</th>
+            <th>Assignees</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var diagnostic in validationService.Diagnostics.Where(_query.Evaluate))
+        {
+            <tr>
+                <td>@diagnostic.Id</td>
+                <td>@diagnostic.Message.RenderMarkdown()</td>
+                <td>@(string.Join(", ", diagnostic.Assignees))</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private bool _canNavigate;
+    private DiagnosticQuery _query = DiagnosticQuery.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name="q")]
+    public string QueryText
+    {
+        get => _query.Text;
+        set
+        {
+            if (value is null)
+                value = "assignee:@me";
+
+            if (_canNavigate)
+            {
+                var newUri = NavigationManager.GetUriWithQueryParameter("q", value);
+                NavigationManager.NavigateTo(newUri, forceLoad: false, replace: true);
+            }
+
+            _query = new DiagnosticQuery(QueryContextProvider.Context, value);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        _canNavigate = true;
+    }
+}

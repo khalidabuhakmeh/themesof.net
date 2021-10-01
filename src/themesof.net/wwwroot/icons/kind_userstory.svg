@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 100 100"
+   version="1.1"
+   x="0px"
+   y="0px"
+   id="svg10020"
+   sodipodi:docname="kind_userstory.svg"
+   width="100"
+   height="100"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs10024" />
+  <sodipodi:namedview
+     id="namedview10022"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     height="100px"
+     inkscape:zoom="11.61"
+     inkscape:cx="50"
+     inkscape:cy="50"
+     inkscape:window-width="2560"
+     inkscape:window-height="1369"
+     inkscape:window-x="2552"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg10020" />
+  <title
+     id="title9982">User story 1</title>
+  <desc
+     id="desc9984">Created with Sketch.</desc>
+  <path
+     d="m 37.66401,100 c 0.28808,-1.317255 0.439881,-2.685479 0.439881,-4.089163 0,-8.184784 -5.161211,-15.164113 -12.406592,-17.860931 3.201445,-2.102046 5.315414,-5.724336 5.315414,-9.840367 0,-6.496768 -5.266674,-11.763442 -11.763443,-11.763442 -6.49677,0 -11.7634431,5.266674 -11.7634431,11.763442 0,4.056004 2.05276,7.63256 5.1760421,9.747435 C 5.2827449,80.583501 0,87.630246 0,95.910837 0,97.314521 0.1518012,98.682745 0.4398821,100 Z"
+     id="path9986"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.27013" />
+  <path
+     d="m 46.13895,49.438372 h 37.988033 c 7.01314,0 12.698413,-4.849811 12.698413,-10.832357 V 13.540446 c 0,-5.9825449 -5.685273,-10.8323561 -12.698413,-10.8323561 H 15.873015 c -7.0131379,0 -12.6984118,4.8498112 -12.6984118,10.8323561 v 25.065569 c 0,5.982546 5.6852739,10.832357 12.6984118,10.832357 h 18.94676 3.174602 v 5.742156 z M 15.873015,8e-7 H 84.126983 C 92.893408,8e-7 100,6.0622642 100,13.540446 v 25.065569 c 0,7.478182 -7.106592,13.540447 -15.873017,13.540447 H 47.281036 L 34.819775,60.932005 V 52.146462 H 15.873015 C 7.1065901,52.146462 0,46.084197 0,38.606015 V 13.540446 C 0,6.0622642 7.1065901,8e-7 15.873015,8e-7 Z"
+     fill-rule="nonzero"
+     id="path9988"
+     style="fill:#fbad00;fill-opacity:1;stroke:none;stroke-width:1.46604" />
+  <rect
+     x="17.845339"
+     y="14.600849"
+     width="43.16164"
+     height="2.9766648"
+     id="rect9990"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="17.845339"
+     y="33.122097"
+     width="43.16164"
+     height="2.9766648"
+     id="rect9992"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="63.983643"
+     y="14.600849"
+     width="17.859989"
+     height="2.9766648"
+     id="rect9994"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="17.845339"
+     y="23.530842"
+     width="17.859989"
+     height="2.9766648"
+     id="rect9996"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="63.983643"
+     y="33.122097"
+     width="17.859989"
+     height="2.9766648"
+     id="rect10000"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="38.681992"
+     y="23.530842"
+     width="14.883324"
+     height="2.9766648"
+     id="rect10006"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <rect
+     x="56.541981"
+     y="23.530842"
+     width="25.301651"
+     height="2.9766648"
+     id="rect10008"
+     style="fill:#fbad00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1.48833" />
+  <metadata
+     id="metadata10186">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>User story 1</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

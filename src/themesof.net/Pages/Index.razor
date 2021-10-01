@@ -1,0 +1,81 @@
+﻿@page "/"
+
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying
+@using ThemesOfDotNet.Indexing.WorkItems
+
+@inject WorkspaceService WorkspaceService;
+@inject WorkItemAccessCheckService WorkItemAccessCheckService;
+@inject QueryContextProvider QueryContextProvider;
+@inject NavigationManager NavigationManager;
+
+<PageTreeToolbar ExpandAllClicked="() => _pageTree.ExpandAll()"
+                 CollapseAllClicked="() => _pageTree.CollapseAll()"
+                 @bind-QuickFilter="QuickFilter" />
+
+<PageTreeView Tree="@_pageTree.Roots" />
+
+@code {
+    private bool _parametersSet;
+    private string _quickFilter = string.Empty;
+    private WorkItemAccessCheck _accessCheck = WorkItemAccessCheck.None;
+    private PageTree _pageTree = PageTree.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "f")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accessCheck = await WorkItemAccessCheckService.CreateAsync();
+        _pageTree = PageTree.CreateAreaTree(WorkspaceService.Workspace, _accessCheck.Perform)
+                            .Filter(n => n.Data is not WorkItem wi || !wi.IsClosed);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _parametersSet = true;
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdateTree();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["q"] = QuickFilter.Length == 0 ? null : QuickFilter
+        };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private void UpdateTree()
+    {
+        var query = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+        if (query.Text.Length == 0)
+            _pageTree.ApplyQuickFilter(null);
+        else
+            _pageTree.ApplyQuickFilter(n => n.Data is WorkItem wi && query.Evaluate(wi));
+    }
+}

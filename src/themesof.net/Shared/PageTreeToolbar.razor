@@ -1,0 +1,33 @@
+﻿<div class="form-group row no-gutters align-items-center">
+    @if (ExpandAllClicked.HasDelegate || CollapseAllClicked.HasDelegate)
+    {
+        <div class="col-auto">
+            <div class="btn-group" role="group" aria-label="Expand/Collapse">
+                @if (ExpandAllClicked.HasDelegate)
+                {
+                    <button class="btn btn-sm btn-secondary" aria-label="Expand All" @onclick="ExpandAllClicked">
+                        <span class="oi oi-plus"></span>
+                    </button>
+                }
+                @if (CollapseAllClicked.HasDelegate)
+                {
+                    <button class="btn btn-sm btn-secondary" aria-label="Collapse All" @onclick="CollapseAllClicked">
+                        <span class="oi oi-minus"></span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    @if (ExpandUnmatchedClicked.HasDelegate)
+    {
+        <div class="col-auto ml-2">
+            <button class="btn btn-sm btn-muted" @onclick="ExpandUnmatchedClicked" title="Will expand nodes that aren't matched by the filter.">
+                Expand Unmatched
+            </button>
+        </div>       
+    }
+
+    <div class="col ml-2">
+        <WorkItemFilter @bind-Filter="QuickFilter" />
+    </div>
+</div>

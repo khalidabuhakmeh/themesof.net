@@ -1,0 +1,306 @@
+﻿@page "/leadership"
+@attribute [Authorize(Roles = "product-team")]
+
+@using System.Globalization
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying
+@using ThemesOfDotNet.Indexing.WorkItems
+
+@inject WorkspaceService WorkspaceService;
+@inject QueryContextProvider QueryContextProvider;
+@inject NavigationManager NavigationManager;
+
+<div class="form-group row">
+    <label for="team" class="col-2 col-form-label">Team</label>
+    <div class="col-10">
+        <select class="form-control" id="team" @bind="SelectedTeam">
+            <option value="">(All)</option>
+            @foreach (var team in Teams)
+            {
+                <option value="@team">@team</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
+    <label for="area" class="col-2 col-form-label">Area</label>
+    <div class="col-10">
+        <select class="form-control" id="area" @bind="SelectedArea">
+            <option value="">(All)</option>
+            @foreach (var area in TeamAreas)
+            {
+                <option value="@area">@area</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
+    <label for="statusSummarySince" class="col-2 col-form-label text-nowrap">Status since</label>
+    <div class="col-auto form-inline">
+        <input type="date" class="form-control" id="statusSummarySince" @bind="StatusSince">
+        <div class="form-check ml-2">
+            <input type="checkbox" class="form-check-input" id="filterToChangesCheckbox" @bind="StatusSinceFiltered">
+            <label class="form-check-label" for="filterToChangesCheckbox">Filter to status changes</label>
+        </div>
+    </div>
+</div>
+
+<PageTreeToolbar ExpandAllClicked="() => _pageTree.ExpandAll()"
+                 CollapseAllClicked="() => _pageTree.CollapseAll()"
+                 @bind-QuickFilter="QuickFilter" />
+
+<CascadingValue Name="ChangeGlyphsSince" Value="@StatusSince">
+    <PageTreeView Tree="@_pageTree.Roots" />
+</CascadingValue>
+
+@code {
+    private bool _parametersSet;
+    private string _selectedTeam = string.Empty;
+    private string _selectedArea = string.Empty;
+    private string _quickFilter = string.Empty;
+    private DateTimeOffset _statusSinceDefault = DateTime.Now.Date.AddDays(-28);
+    private DateTimeOffset _statusSince;
+    private bool _statusSinceFiltered;
+
+    private PageTree _pageTree = PageTree.Empty;
+    private string? _pageTreeTeam;
+    private string? _pageTreeArea; 
+    private DateTimeOffset _pageTreeStatusSince;
+    private bool _pageTreeStatusSinceFiltered;
+
+    public IReadOnlyList<string> Teams { get; set; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> TeamAreas { get; set; } = Array.Empty<string>();
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "team")]
+    public string SelectedTeam
+    {
+        get => _selectedTeam;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedTeam != value)
+            {
+                _selectedTeam = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "area")]
+    public string SelectedArea
+    {
+        get => _selectedArea;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedArea != value)
+            {
+                _selectedArea = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "q")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "status-since")]
+    public string StatusSinceText
+    {
+        get => _statusSince.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        set
+        {
+            if (DateTimeOffset.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var statusSince))
+                StatusSince = statusSince;
+            else
+                StatusSince = _statusSinceDefault;
+        }
+    }
+
+    public DateTimeOffset StatusSince
+    {
+        get => _statusSince;
+        set
+        {
+            if (_statusSince != value)
+            {
+                _statusSince = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "status-only")]
+    public bool StatusSinceFiltered
+    {
+        get => _statusSinceFiltered;
+        set
+        {
+            if (_statusSinceFiltered != value)
+            {
+                _statusSinceFiltered = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        var workspace = WorkspaceService.Workspace;
+        Teams = workspace.WorkItems.SelectMany(wi => wi.Teams)
+                                   .OrderBy(t => t)
+                                   .Distinct(StringComparer.OrdinalIgnoreCase)
+                                   .ToArray();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _parametersSet = true;
+        UpdateTree();
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdateTree();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["team"] = SelectedTeam.Length == 0 ? null : SelectedTeam,
+            ["area"] = SelectedArea.Length == 0 ? null : SelectedArea,
+            ["q"] = QuickFilter.Length == 0 ? null : QuickFilter,
+            ["status-since"] = StatusSince == _statusSinceDefault ? null : StatusSinceText,
+            ["status-only"] = StatusSince == _statusSinceDefault
+                                ? null
+                                : StatusSinceFiltered
+                                    ? "true"
+                                    : "false"
+        };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private void UpdateTree()
+    {
+        var workspace = WorkspaceService.Workspace;
+
+        if (SelectedTeam.Length == 0)
+            TeamAreas = workspace.WorkItems
+                                 .SelectMany(wi => wi.Areas)        
+                                 .OrderBy(a => a)
+                                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                                 .ToArray();
+        else
+            TeamAreas = workspace.WorkItems
+                                 .Where(wi => wi.Teams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase))
+                                 .SelectMany(wi => wi.Areas)        
+                                 .OrderBy(a => a)
+                                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                                 .ToArray();
+
+        if (SelectedArea.Length > 0 && !TeamAreas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
+            SelectedArea = string.Empty;
+
+        var treeValid = _pageTree != PageTree.Empty &&
+                        _pageTreeTeam == SelectedTeam &&
+                        _pageTreeArea == SelectedArea &&
+                        _pageTreeStatusSince == StatusSince &&
+                        _pageTreeStatusSinceFiltered == StatusSinceFiltered;
+
+        if (!treeValid)
+        {
+            _pageTree = PageTree.CreateThematicTree(workspace, IncludeWorkItemInRootSet)
+                                .Filter(IncludePageNode);
+
+            _pageTreeTeam = SelectedTeam;
+            _pageTreeArea = SelectedArea;
+            _pageTreeStatusSince = StatusSince;
+            _pageTreeStatusSinceFiltered = StatusSinceFiltered;
+        }
+
+        var query = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+        if (query.Text.Length == 0)
+        {
+            _pageTree.ApplyQuickFilter(null);
+            _pageTree.ExpandUnmatched();
+        }
+        else
+        {
+            _pageTree.ApplyQuickFilter(n => n.Data is WorkItem wi && query.Evaluate(wi));
+        }
+    }
+
+    private bool IncludeWorkItemInRootSet(WorkItem workItem)
+    {
+        if (workItem.IsBottomUp ||
+            workItem.Kind == WorkItemKind.Task)
+            return false;
+
+        if (workItem.Priority is not null && workItem.Priority > 1)
+            return false;
+
+        return true;
+    }
+
+    private bool IncludePageNode(PageNode node)
+    {
+        if (node.Data is WorkItem workItem)
+            return IncludeWorkItem(workItem);
+
+        return true;
+    }
+
+    private bool IncludeWorkItem(WorkItem workItem)
+    {
+        if (SelectedTeam.Length > 0 && !workItem.Teams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        if (SelectedArea.Length > 0 && !workItem.Areas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        if (StatusSinceFiltered)
+        {
+            var hasStatusChanges = workItem.Changes.Where(c => c.Kind == WorkItemChangeKind.StateChanged ||
+                                                               c.Kind == WorkItemChangeKind.CostChanged ||
+                                                               c.Kind == WorkItemChangeKind.PriorityChanged ||
+                                                               c.Kind == WorkItemChangeKind.MilestoneChanged)
+                                                   .Any(c => c.When >= StatusSince);
+            if (!hasStatusChanges)
+                return false;
+        }
+
+        return true;
+    }
+}

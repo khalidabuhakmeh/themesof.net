@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xml:space="preserve"
+   style="image-rendering:optimizeQuality;shape-rendering:geometricPrecision;text-rendering:geometricPrecision"
+   viewBox="0 0 24.000001 23.999999"
+   x="0px"
+   y="0px"
+   fill-rule="evenodd"
+   clip-rule="evenodd"
+   version="1.1"
+   id="svg1068"
+   sodipodi:docname="change_cost.svg"
+   width="24"
+   height="24"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1070"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="42.036076"
+     inkscape:cx="8.6949124"
+     inkscape:cy="31.318337"
+     inkscape:window-width="2560"
+     inkscape:window-height="1369"
+     inkscape:window-x="2552"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1068" /><defs
+     id="defs1058"><style
+       type="text/css"
+       id="style1056">
+   
+    .fil0 {fill:black}
+   
+  </style></defs><g
+     id="g1062"
+     transform="matrix(1.1498154,0,0,1.1497926,1.9999406,2.4485004)"
+     style="fill:#ff6600"><path
+       class="fil0"
+       d="M 6.4658,0 C 5.8046,0.1754 3.1054,1.2197 2.6759,1.6019 2.5552,1.7094 0.706,6.1348 0.0016,7.1096 c -0.0828,0.1328 3.1802,1.3607 3.7863,1.6 v 7.9047 h 9.8184 V 8.7096 c 0.6061,-0.2393 3.8691,-1.4672 3.7863,-1.6 C 16.6882,6.1348 14.839,1.7094 14.7183,1.6019 14.2888,1.2197 11.5896,0.1754 10.9284,0 10.4437,1.839 6.9502,1.8379 6.4658,0 Z"
+       id="path1060"
+       style="fill:#ff6600" /></g></svg>

@@ -1,0 +1,35 @@
+.completion-list {
+    height: 12rem;
+    border: 1px solid lightgray;
+    border-radius: 4px;
+    background-color: white;
+    overflow-y: scroll;
+}
+
+.completion-list-item {
+    padding: 0.1rem 0.5rem;
+}
+
+.completion-list-item:hover {
+    cursor: pointer;
+    background-color: lightgray;
+}
+
+.completion-list-item.selected {
+    background-color: lightgray;
+}
+
+@media (prefers-color-scheme: dark) {
+    .completion-list {
+        border-color: gray;
+        background-color: black;
+    }    
+   
+    .completion-list-item:hover {
+        background-color: #404040;
+    }
+    
+    .completion-list-item.selected {
+        background-color: #404040;
+    }
+}

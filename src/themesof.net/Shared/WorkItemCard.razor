@@ -1,0 +1,100 @@
+﻿@using ThemesOfDotNet.Indexing.WorkItems
+
+@{
+    var isMuted = WorkItem.IsBottomUp;
+    var treeNode = WorkItem;
+
+    var isBottomUp = WorkItem.IsBottomUp;
+    var isPrivate = WorkItem.IsPrivate;
+    var url = WorkItem.Url;
+    var detailText = WorkItem.Id;
+    var milestone = WorkItem.Milestone;
+    var assignees = WorkItem.Assignees.Any() == true ? string.Join(", ", WorkItem.Assignees) : null;
+    var kindClass = WorkItem.Kind.ToString().ToLower();
+    var kindUrl = WorkItem.Kind.GetUrl();
+    var stateUrl = WorkItem.State.GetUrl();
+    var iconTitle = $"{WorkItem.State.Humanize()} {WorkItem.Kind.Humanize(LetterCasing.LowerCase)}";
+    var bottomUpClass = isBottomUp ? "bottom-up" : "";
+}
+<div class="gh-issue d-flex flex-row">
+    <div class="gh-issue-kind-header @kindClass @bottomUpClass">
+        <span class="gh-issue-icon-container">
+            <img class="gh-issue-icon" src="@kindUrl" title="@iconTitle" />
+            <img class="gh-issue-status-icon" src="@stateUrl" title="@iconTitle" />
+        </span>
+    </div>
+    <div>
+        <div>
+            <a class="gh-issue-title" href="@url" rel="noopener" target="_blank">
+                @if (isPrivate)
+                {
+                    <span class="oi oi-lock-locked text-muted small mr-1"></span>
+                }
+                @treeNode.Title
+            </a>
+            <span class="ml-1">
+                @if (ChangeGlyphsSince is not null)
+                {
+                    <WorkItemStatusLabel WorkItem="@WorkItem" Since="@ChangeGlyphsSince.Value" />
+                }
+                @if (WorkItem.Children.Any())
+                {
+                    <span class="gh-label"
+                          title="@(WorkItem.PercentComplete.ToString("P0")) Complete"
+                          style="--label-r: 191;--label-g: 218;--label-b: 220;--label-h: 184.13792;--label-s: 29.292929;--label-l: 80.588234;">@(WorkItem.PercentComplete.ToString("P0"))</span>
+                }
+                @if (WorkItem.Priority is not null)
+                {
+                    <span class="gh-label"
+                          title="Priority: @WorkItem.Priority"
+                          style="--label-r: 182;--label-g: 2;--label-b: 5;--label-h: 359;--label-s: 97.82609;--label-l: 36.078434;">P@(WorkItem.Priority)</span>
+                }
+                @if (WorkItem.Cost is not null)
+                {
+                    <span class="gh-label"
+                          title="Cost: @WorkItem.Cost"
+                          style="--label-r: 191;--label-g: 218;--label-b: 220;--label-h: 184.13792;--label-s: 29.292929;--label-l: 80.588234;">@(WorkItem.Cost)</span>
+                }
+                @foreach (var area in WorkItem.Areas)
+                {
+                    <span class="gh-label"
+                          title="Area: @area"
+                          style="--label-r: 83;--label-g: 25;--label-b: 231;--label-h: 256.8932;--label-s: 81.102356;--label-l: 50.196083;">@area</span>
+                }
+                @foreach (var team in WorkItem.Teams)
+                {
+                    <span class="gh-label"
+                          title="Team: @team"
+                          style="--label-r: 229;--label-g: 160;--label-b: 211;--label-h: 315.65216;--label-s: 57.024796;--label-l: 76.274506;">@team</span>
+                }
+                @if (WorkItem.IsBottomUp)
+                {
+                    <span class="gh-label"
+                          title="This work is not part of the top down product planning"
+                          style="--label-r: 237;--label-g: 237;--label-b: 237;--label-h: 0;--label-s: 0;--label-l: 92.94118;">Bottom Up</span>
+                }
+            </span>
+        </div>
+        <div class="gh-details-cell">
+            @detailText
+
+            @if (@milestone is not null)
+            {
+                <span class="ml-2 mr-1 oi oi-signpost text-muted" aria-hidden="true"></span>@milestone
+            }
+
+            @if (assignees is not null)
+            {
+                <span class="ml-2 mr-1 oi oi-person text-muted" aria-hidden="true"></span>@assignees
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public WorkItem WorkItem { get; set; } = null!;
+
+    [CascadingParameter(Name = "ChangeGlyphsSince")]
+    public DateTimeOffset? ChangeGlyphsSince { get; set; }
+}

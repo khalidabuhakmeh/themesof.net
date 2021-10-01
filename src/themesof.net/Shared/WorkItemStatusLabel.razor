@@ -1,0 +1,58 @@
+﻿@using ThemesOfDotNet.Indexing.WorkItems;
+
+@if (Glyphs.Any())
+{
+    <div class="gh-label gh-label-icon-container">
+        @foreach (var (url, title) in Glyphs)
+        {
+            <img class="gh-label-icon" src="@url" title="@title" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public WorkItem? WorkItem { get; set; }
+
+    [Parameter]
+    public DateTimeOffset Since { get; set; }
+
+    public (string Url, string Title)[] Glyphs { get; set; } = Array.Empty<(string, string)>();
+
+    protected override void OnParametersSet()
+    {
+        if (WorkItem is null)
+            return;
+
+        var glyphs = new List<(string, string)>();
+
+        var latestChanges = WorkItem.Changes.Where(c => c.When >= Since)
+                                            .Reverse();
+
+        var statusChange = latestChanges.Where(c => c.Kind == WorkItemChangeKind.StateChanged)
+                                        .FirstOrDefault();
+        if (statusChange is not null)
+        {
+            var state = (WorkItemState)statusChange.PreviousValue!;
+            var url = state.GetUrl();
+            glyphs.Add((url, statusChange.ToString()));
+        }
+
+        var priorityChange = latestChanges.Where(c => c.Kind == WorkItemChangeKind.PriorityChanged)
+                                          .FirstOrDefault();
+        if (priorityChange is not null)
+            glyphs.Add((priorityChange.Kind.GetUrl(), priorityChange.ToString()));
+
+        var costChange = latestChanges.Where(c => c.Kind == WorkItemChangeKind.CostChanged)
+                                      .FirstOrDefault();
+        if (costChange is not null)
+            glyphs.Add((costChange.Kind.GetUrl(), costChange.ToString()));
+
+        var milestoneChange = latestChanges.Where(c => c.Kind == WorkItemChangeKind.MilestoneChanged)
+                                           .FirstOrDefault();
+        if (milestoneChange is not null)
+            glyphs.Add((milestoneChange.Kind.GetUrl(), milestoneChange.ToString()));
+
+        Glyphs = glyphs.ToArray();
+    }
+}

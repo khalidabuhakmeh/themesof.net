@@ -1,0 +1,15 @@
+<div class="col input-group">
+    <div class="input-group-prepend">
+        <CompletionDialog @ref="_completionDialog" />
+        <button onclick="this.focus()" class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Filters</button>
+        <div class="dropdown-menu">
+            @foreach (var (text, action, _) in _commands)
+            {
+                <a class="dropdown-item" href="#"  @onclick="action" @onclick:preventDefault="true">@text</a>
+            }
+            <div role="separator" class="dropdown-divider"></div>
+            <a class="dropdown-item" href="/syntax">View advanced syntax</a>
+        </div>
+    </div>
+    <input @ref="_inputRef" type="text" class="form-control" placeholder="Quick filter" @bind="QuickFilter" />
+</div>

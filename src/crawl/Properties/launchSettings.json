@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "crawl": {
+      "commandName": "Project",
+      "commandLineArgs": "P:\\themesof.net-crawler\\subscriptions.json"
+    }
+  }
+}

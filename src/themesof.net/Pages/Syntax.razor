@@ -1,0 +1,43 @@
+@page "/syntax"
+@using ThemesOfDotNet.Indexing.Querying;
+
+<div class="container">
+
+<p>
+    The query syntax follows what is possible on GitHub and <a href="https://issuesof.net/help">issuesof.net</a>:
+</p>
+<ul>
+    <li>Arguments are implicitly combined using a logical and</li>
+    <li>You can also combine them using <code>OR</code></li>
+    <li>You can negate them by prefixing them with <code>NOT</code> or <code>-</code></li>
+    <li>You can use parenthesis for grouping</li>
+</ul>
+<p>
+    Below are a list of all the supported query operators. Where appropriate, you can modify them usin
+    range operators, such as:
+</p>
+<code><pre>priority:&lt;=2
+priority:>1
+priority:1..2
+</pre></code>
+
+@{
+    var queryKinds = new (string Kind, ThemesOfDotNet.Indexing.Querying.Query Query)[]
+    {
+        ("Work Items", WorkItemQuery.Empty),
+        ("Validation", DiagnosticQuery.Empty)
+    };
+}
+
+@foreach (var (kind, query) in queryKinds)
+{
+    <h3>@kind</h3>
+    <ul>
+        @foreach (var syntax in query.GetSyntaxHelp())
+        {
+            <li><code>@syntax</code></li>
+        }
+    </ul>
+}
+
+</div>
