@@ -37,6 +37,19 @@
 </div>
 
 <div class="form-group row">
+    <label for="selectedRelease" class="col-sm-2 col-form-label">Release</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="selectedRelease" @bind="SelectedRelease">
+            <option value="">(All)</option>
+            @foreach (var release in ProductReleases)
+            {
+                <option value="@release">@release</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="form-group row">
     <label for="statusSummarySince" class="col-2 col-form-label text-nowrap">Status since</label>
     <div class="col-auto form-inline">
         <input type="date" class="form-control" id="statusSummarySince" @bind="StatusSince">
@@ -59,6 +72,7 @@
     private bool _parametersSet;
     private string _selectedTeam = string.Empty;
     private string _selectedArea = string.Empty;
+    private string _selectedRelease = string.Empty;
     private string _quickFilter = string.Empty;
     private DateTimeOffset _statusSinceDefault = DateTime.Now.Date.AddDays(-28);
     private DateTimeOffset _statusSince;
@@ -67,12 +81,15 @@
     private PageTree _pageTree = PageTree.Empty;
     private string? _pageTreeTeam;
     private string? _pageTreeArea; 
+    private string? _pageTreeRelease;
     private DateTimeOffset _pageTreeStatusSince;
     private bool _pageTreeStatusSinceFiltered;
 
     public IReadOnlyList<string> Teams { get; set; } = Array.Empty<string>();
 
     public IReadOnlyList<string> TeamAreas { get; set; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> ProductReleases { get; set; } = Array.Empty<string>();
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "team")]
@@ -105,6 +122,24 @@
             if (_selectedArea != value)
             {
                 _selectedArea = value;
+                UpdateUri();
+            }
+        }
+    }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "release")]
+    public string SelectedRelease
+    {
+        get => _selectedRelease;
+        set
+        {
+            if (value is null)
+                value = string.Empty;
+
+            if (_selectedRelease != value)
+            {
+                _selectedRelease = value;
                 UpdateUri();
             }
         }
@@ -177,6 +212,12 @@
                                    .OrderBy(t => t)
                                    .Distinct(StringComparer.OrdinalIgnoreCase)
                                    .ToArray();
+        ProductReleases = workspace.Milestones
+                                   .OrderBy(m => m.Product.Name)
+                                   .ThenByDescending(m => m.Version)
+                                   .Select(m => GetRelease(m))
+                                   .Distinct(StringComparer.OrdinalIgnoreCase)
+                                   .ToArray();
     }
 
     protected override void OnParametersSet()
@@ -200,6 +241,7 @@
         {
             ["team"] = SelectedTeam.Length == 0 ? null : SelectedTeam,
             ["area"] = SelectedArea.Length == 0 ? null : SelectedArea,
+            ["release"] = SelectedRelease.Length == 0 ? null : SelectedRelease,
             ["q"] = QuickFilter.Length == 0 ? null : QuickFilter,
             ["status-since"] = StatusSince == _statusSinceDefault ? null : StatusSinceText,
             ["status-only"] = StatusSince == _statusSinceDefault
@@ -210,6 +252,11 @@
         };
 
         return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private static string GetRelease(WorkItemMilestone m)
+    {
+        return $"{m.Product} {m.Version.Major}.{m.Version.Minor}";
     }
 
     private void UpdateTree()
@@ -232,10 +279,14 @@
 
         if (SelectedArea.Length > 0 && !TeamAreas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
             SelectedArea = string.Empty;
+        
+        if (SelectedRelease.Length > 0 && !ProductReleases.Contains(SelectedRelease, StringComparer.OrdinalIgnoreCase))
+            SelectedRelease = string.Empty;
 
         var treeValid = _pageTree != PageTree.Empty &&
                         _pageTreeTeam == SelectedTeam &&
                         _pageTreeArea == SelectedArea &&
+                        _pageTreeRelease == SelectedRelease &&
                         _pageTreeStatusSince == StatusSince &&
                         _pageTreeStatusSinceFiltered == StatusSinceFiltered;
 
@@ -246,6 +297,7 @@
 
             _pageTreeTeam = SelectedTeam;
             _pageTreeArea = SelectedArea;
+            _pageTreeRelease = SelectedRelease;
             _pageTreeStatusSince = StatusSince;
             _pageTreeStatusSinceFiltered = StatusSinceFiltered;
         }
@@ -289,6 +341,13 @@
 
         if (SelectedArea.Length > 0 && !workItem.Areas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
             return false;
+
+        if (workItem.Milestone is not null)
+        {
+            var workItemRelease = GetRelease(workItem.Milestone);
+            if (SelectedRelease.Length > 0 && !string.Equals(workItemRelease, SelectedRelease, StringComparison.Ordinal))
+                return false;
+        }
 
         if (StatusSinceFiltered)
         {
