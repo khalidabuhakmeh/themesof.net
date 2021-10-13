@@ -149,7 +149,7 @@ static async Task<int> CrawlAsync(SubscriptionConfiguration subscriptionConfigur
     var ospoCrawler = new OspoCrawler(ospoToken, ospoCache);
     await ospoCrawler.CrawlAsync(gitHubUserNames, microsoftAliases);
 
-    return 0;
+    return GitHubActions.SeenErrors ? 1 : 0;
 }
 
 static string? GetRequiredValue(IConfiguration configuration, string key)
