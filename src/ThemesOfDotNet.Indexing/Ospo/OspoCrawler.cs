@@ -34,6 +34,10 @@ public sealed class OspoCrawler
 
             foreach (var link in links)
             {
+                // Alias should never be null, but the data we get does contain null values.
+                if (link.MicrosoftInfo.Alias is null)
+                    continue;
+
                 var shouldBeCached = gitHubUserNameSet.Contains(link.GitHubInfo.Login) ||
                                      microsoftAliasSet.Contains(link.MicrosoftInfo.Alias);
                 if (shouldBeCached)
