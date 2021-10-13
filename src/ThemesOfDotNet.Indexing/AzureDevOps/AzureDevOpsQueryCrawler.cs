@@ -54,15 +54,17 @@ public sealed class AzureDevOpsQueryCrawler
         var client = connection.GetClient<WorkItemTrackingHttpClient>();
         var itemQueryResults = await client.QueryByIdAsync(new Guid(query.QueryId));
 
-        var itemIds = itemQueryResults.WorkItemRelations.Select(rel => rel.Target)
-              .Concat(itemQueryResults.WorkItemRelations.Select(rel => rel.Source))
+        var workItemRelations = itemQueryResults.WorkItemRelations ?? Enumerable.Empty<WorkItemLink>();
+
+        var itemIds = workItemRelations.Select(rel => rel.Target)
+              .Concat(workItemRelations.Select(rel => rel.Source))
               .Where(r => r != null)
               .Select(r => r.Id)
               .ToHashSet();
 
         var childIdsByParentId = new Dictionary<int, List<int>>();
 
-        foreach (var link in itemQueryResults.WorkItemRelations)
+        foreach (var link in workItemRelations)
         {
             if (link.Source == null || link.Target == null)
                 continue;
@@ -215,7 +217,8 @@ public sealed class AzureDevOpsQueryCrawler
             list.Add(item);
         }
 
-        yield return list.ToArray();
+        if (list.Count > 0)
+            yield return list.ToArray();
     }
 
     private static async Task<IReadOnlyList<AzureDevOpsFieldChange>> GetFieldChangesAsync(WorkItemTrackingHttpClient client, int id)
