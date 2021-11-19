@@ -50,31 +50,31 @@ or if their value is `0` or `1`. The intent is to focus on big rocks.
 
 Work items use t-shirt size costing, expressed as those labels:
 
-* `cost:s`
-* `cost:m`
-* `cost:l`
-* `cost:xl`
+* `Cost:S`
+* `Cost:M`
+* `Cost:L`
+* `Cost:XL`
 
 ## States
 
-An issue is either open or closed. That's not particular useful for use because we need
-to know a bit more:
+An issue is either open or closed. That's not particular useful for use because
+we need to know a bit more:
 
 * `Proposed`. An issue that is open and has no status label applied is
   considered proposed. These are work items that haven't necessarily been
   reviewed yet and might not be planned yet.
 
-* `Committed`. This is expressed via the label `status:committed` and indicates
+* `Committed`. This is expressed via the label `Status:Committed` and indicates
   that this work item was reviewed by the product team and is planned for an
   upcoming release.
 
-* `In Progress`. This is expressed via the label `status:inprogress` and
+* `In Progress`. This is expressed via the label `Status:InProgress` and
   indicates that the engineering team has started working on it.
 
-* `Completed`. This is expressed via the label `status:completed` and indicates
+* `Completed`. This is expressed via the label `Status:Completed` and indicates
   that the engineering team has completed the work.
 
-* `Cut`. This is expressed via the label `status:cut` and indicates that the
+* `Cut`. This is expressed via the label `Status:Cut` and indicates that the
   product team has decided to cut the work item from the current release.
 
 **Note**: This is a deviation from what we did in .NET 6 where the state was
