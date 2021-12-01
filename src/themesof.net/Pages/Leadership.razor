@@ -323,6 +323,13 @@
         if (workItem.Priority is not null && workItem.Priority > 1)
             return false;
 
+        if (workItem.Milestone is not null)
+        {
+            var workItemRelease = GetRelease(workItem.Milestone);
+            if (SelectedRelease.Length > 0 && !string.Equals(workItemRelease, SelectedRelease, StringComparison.Ordinal))
+                return false;
+        }
+        
         return true;
     }
 
@@ -341,13 +348,6 @@
 
         if (SelectedArea.Length > 0 && !workItem.Areas.Contains(SelectedArea, StringComparer.OrdinalIgnoreCase))
             return false;
-
-        if (workItem.Milestone is not null)
-        {
-            var workItemRelease = GetRelease(workItem.Milestone);
-            if (SelectedRelease.Length > 0 && !string.Equals(workItemRelease, SelectedRelease, StringComparison.Ordinal))
-                return false;
-        }
 
         if (StatusSinceFiltered)
         {
