@@ -323,11 +323,18 @@
         if (workItem.Priority is not null && workItem.Priority > 1)
             return false;
 
-        if (workItem.Milestone is not null)
+        if (SelectedRelease.Length > 0)
         {
-            var workItemRelease = GetRelease(workItem.Milestone);
-            if (SelectedRelease.Length > 0 && !string.Equals(workItemRelease, SelectedRelease, StringComparison.Ordinal))
+            if (workItem.Milestone is null)
+            {
                 return false;
+            }
+            else
+            {
+                var workItemRelease = GetRelease(workItem.Milestone);
+                if (!string.Equals(workItemRelease, SelectedRelease, StringComparison.Ordinal))
+                    return false;
+            }
         }
         
         return true;
