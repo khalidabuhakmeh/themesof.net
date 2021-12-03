@@ -574,6 +574,9 @@ public sealed class GitHubIncrementalCrawler : GitHubCrawler
             result = true;
         }
 
+        if (result)
+            Changed?.Invoke(this, EventArgs.Empty);
+
         return result;
     }
 
@@ -585,4 +588,6 @@ public sealed class GitHubIncrementalCrawler : GitHubCrawler
         gitHubTransferMap = _transferMap.ToDictionary(kv => kv.Key, kv => kv.Value);
         gitHubProjects = _projectById.Values.ToArray();
     }
+
+    public event EventHandler? Changed;
 }

@@ -8,19 +8,25 @@ public sealed class WorkspaceService
     private readonly ILogger<WorkspaceService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
-    private readonly GitHubCrawlerService _crawlerService;
+    private readonly GitHubCrawlerService _gitHubCrawlerService;
+    private readonly AzureDevOpsCrawlerService _azureDevOpsCrawlerService;
+    private readonly OspoCrawlerService _ospoCrawlerService;
 
     private WorkspaceData? _workspaceData;
 
     public WorkspaceService(ILogger<WorkspaceService> logger,
                             IConfiguration configuration,
                             IWebHostEnvironment environment,
-                            GitHubCrawlerService crawlerService)
+                            GitHubCrawlerService gitHubCrawlerService,
+                            AzureDevOpsCrawlerService azureDevOpsCrawlerService,
+                            OspoCrawlerService ospoCrawlerService)
     {
         _logger = logger;
         _configuration = configuration;
         _environment = environment;
-        _crawlerService = crawlerService;
+        _gitHubCrawlerService = gitHubCrawlerService;
+        _azureDevOpsCrawlerService = azureDevOpsCrawlerService;
+        _ospoCrawlerService = ospoCrawlerService;
     }
 
     public Workspace Workspace { get; private set; } = Workspace.Empty;
@@ -47,18 +53,20 @@ public sealed class WorkspaceService
         var workspaceData = await workspaceDataCache.LoadAsync();
 
         UpdateWorkspace(workspaceData);
+
+        _gitHubCrawlerService.Crawler.Changed += CrawlerChanged;
+        _azureDevOpsCrawlerService.Changed += CrawlerChanged;
+        _ospoCrawlerService.Changed += CrawlerChanged;
     }
 
-    public void Invalidate()
+    private void CrawlerChanged(object? sender, EventArgs e)
     {
         if (_workspaceData is null)
             return;
 
-        _crawlerService.Crawler.GetSnapshot(out var issues,
-                                            out var transferMap,
-                                            out var projects);
-
-        // TODO: Update OSPO Links
+        _gitHubCrawlerService.Crawler.GetSnapshot(out var issues,
+                                                  out var transferMap,
+                                                  out var projects);
 
         var data = new WorkspaceData(
             _workspaceData.Configuration,
@@ -66,8 +74,8 @@ public sealed class WorkspaceService
             issues,
             transferMap,
             projects,
-            _workspaceData.AzureDevOpsWorkItems,
-            _workspaceData.OspoLinks
+            _azureDevOpsCrawlerService.WorkItems,
+            _ospoCrawlerService.Links
         );
 
         UpdateWorkspace(data);

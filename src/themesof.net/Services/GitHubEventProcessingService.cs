@@ -11,7 +11,6 @@ public sealed class GitHubEventProcessingService : IGitHubEventProcessor, IHoste
 {
     private readonly ILogger<GitHubEventProcessingService> _logger;
     private readonly GitHubCrawlerService _crawlerService;
-    private readonly WorkspaceService _workspaceService;
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentQueue<GitHubEventMessage> _messages = new();
     private readonly AutoResetEvent _dataAvailable = new(false);
@@ -21,12 +20,10 @@ public sealed class GitHubEventProcessingService : IGitHubEventProcessor, IHoste
 
     public GitHubEventProcessingService(ILogger<GitHubEventProcessingService> logger,
                                         IConfiguration configuration,
-                                        GitHubCrawlerService crawlerService,
-                                        WorkspaceService workspaceService)
+                                        GitHubCrawlerService crawlerService)
     {
         _logger = logger;
         _crawlerService = crawlerService;
-        _workspaceService = workspaceService;
         _processor = new Processor(logger, configuration, crawlerService);
     }
 
@@ -37,7 +34,6 @@ public sealed class GitHubEventProcessingService : IGitHubEventProcessor, IHoste
             _logger.LogInformation("GitHub event processing started");
             try
             {
-                await _crawlerService.InitializeAsync();
                 await RunAsync(_cts.Token);
             }
             catch (OperationCanceledException)
@@ -81,8 +77,7 @@ public sealed class GitHubEventProcessingService : IGitHubEventProcessor, IHoste
             while (_messages.TryDequeue(out var message))
                 await _processor.ProcessAsync(message);
 
-            if (await _crawlerService.Crawler.StoreAsync())
-                _workspaceService.Invalidate();
+            await _crawlerService.Crawler.StoreAsync();
         }
     }
 

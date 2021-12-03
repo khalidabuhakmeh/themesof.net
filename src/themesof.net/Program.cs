@@ -12,6 +12,8 @@ builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["APPINSIG
 builder.Services.AddServerSideBlazor();
 builder.Services.AddControllers();
 builder.Services.AddHostedService(p => p.GetRequiredService<GitHubEventProcessingService>());
+builder.Services.AddHostedService(p => p.GetRequiredService<AzureDevOpsCrawlerService>());
+builder.Services.AddHostedService(p => p.GetRequiredService<OspoCrawlerService>());
 builder.Services.AddSingleton<WorkspaceService>();
 builder.Services.AddSingleton<ValidationService>();
 builder.Services.AddScoped<QueryContextProvider>();
@@ -20,11 +22,19 @@ builder.Services.AddGitHubAuth(builder.Configuration);
 builder.Services.AddSingleton<GitHubEventProcessingService>();
 builder.Services.AddSingleton<IGitHubEventProcessor>(p => p.GetRequiredService<GitHubEventProcessingService>());
 builder.Services.AddSingleton<GitHubCrawlerService>();
+builder.Services.AddSingleton<AzureDevOpsCrawlerService>();
+builder.Services.AddSingleton<OspoCrawlerService>();
 builder.Services.AddHotKeys();
 
 var gitHubWebHookSecret = builder.Configuration["GitHubWebHookSecret"];
 
 var app = builder.Build();
+
+// Intialize GitHub crawler
+
+var gitHubCrawlerService = app.Services.GetRequiredService<GitHubCrawlerService>();
+await gitHubCrawlerService.InitializeAsync();
+
 
 // Create workspace
 
