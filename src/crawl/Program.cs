@@ -134,20 +134,8 @@ static async Task<int> CrawlAsync(SubscriptionConfiguration subscriptionConfigur
     var azureDevOpsCrawler = new AzureDevOpsQueryCrawler(azureDevOpsToken, azureDevOpsCache);
     await azureDevOpsCrawler.CrawlAsync(subscriptionConfiguration.AzureDevOpsQueries);
 
-    var gitHubRepos = await gitHubCache.LoadReposAsync();
-    var gitHubIssues = gitHubRepos.SelectMany(r => r.Issues).ToArray();
-    var gitHubTransferMap = await gitHubCache.LoadTransferMapAsync();
-
-    var azureDevOpsWorkItems = await azureDevOpsCache.LoadAsync();
-
-    var gitHubUserNames = gitHubIssues.SelectMany(i => new[] { i.CreatedBy, i.ClosedBy }.Concat(i.Assignees).Concat(i.Events.Select(e => e.Actor)))
-                                      .Where(u => u is not null)
-                                      .Select(u => u!);
-    var microsoftAliases = azureDevOpsWorkItems.SelectMany(wi => new[] { wi.CreatedBy, wi.AssignedTo }.Concat(wi.Changes.Select(c => c.Actor)))
-                                               .Where(a => a is not null)
-                                               .Select(a => a!);
     var ospoCrawler = new OspoCrawler(ospoToken, ospoCache);
-    await ospoCrawler.CrawlAsync(gitHubUserNames, microsoftAliases);
+    await ospoCrawler.CrawlAsync();
 
     return GitHubActions.SeenErrors ? 1 : 0;
 }

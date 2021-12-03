@@ -14,15 +14,8 @@ public sealed class OspoCrawler
         _cache = cache;
     }
 
-    public async Task CrawlAsync(IEnumerable<string> gitHubUserNames,
-                                 IEnumerable<string> microsoftAliases)
+    public async Task CrawlAsync()
     {
-        ArgumentNullException.ThrowIfNull(gitHubUserNames);
-        ArgumentNullException.ThrowIfNull(microsoftAliases);
-
-        var gitHubUserNameSet = gitHubUserNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var microsoftAliasSet = microsoftAliases.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
         Console.WriteLine("Fetching OSPO data...");
 
         try
@@ -31,6 +24,8 @@ public sealed class OspoCrawler
             var links = await client.GetAllAsync();
 
             var linksToBeCached = new List<OspoLink>();
+            var seenGitHubUserNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var link in links)
             {
@@ -38,10 +33,15 @@ public sealed class OspoCrawler
                 if (link.MicrosoftInfo.Alias is null)
                     continue;
 
-                var shouldBeCached = gitHubUserNameSet.Contains(link.GitHubInfo.Login) ||
-                                     microsoftAliasSet.Contains(link.MicrosoftInfo.Alias);
-                if (shouldBeCached)
-                    linksToBeCached.Add(link);
+                // If we have either seen the GitHub login or the Microsoft alias, we
+                // skip this entry.
+                //
+                // While the data shouldn't contain duplicates, it does.
+                if (!seenGitHubUserNames.Add(link.GitHubInfo.Login) ||
+                    !seenAliases.Add(link.MicrosoftInfo.Alias))
+                    continue;
+
+                linksToBeCached.Add(link);
             }
 
             Console.WriteLine($"Caching {linksToBeCached.Count:N0} links...");
