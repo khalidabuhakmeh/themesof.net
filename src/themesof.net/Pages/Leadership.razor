@@ -320,8 +320,12 @@
             workItem.Kind == WorkItemKind.Task)
             return false;
 
-        if (workItem.Priority is not null && workItem.Priority > 1)
-            return false;
+        // Quite a few people were confused by this behavior. It might make more sense
+        // to add a priority filter to the UI that defaults to this behavior. This way,
+        // it's at least clear there is a filter.
+        //
+        //if (workItem.Priority is not null && workItem.Priority > 1)
+        //   return false;
 
         if (SelectedRelease.Length > 0)
         {
