@@ -5,8 +5,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 
-using Octokit;
-
 namespace ThemesOfDotNet.Services;
 
 internal static class GitHubAuthExtensions
@@ -18,8 +16,6 @@ internal static class GitHubAuthExtensions
     {
         var clientId = configuration["GitHubClientId"];
         var clientSecret = configuration["GitHubClientSecret"];
-        var productTeamOrg = configuration["ProductTeamOrg"];
-        var productTeamSlug = configuration["ProductTeamSlug"];
 
         services.AddAuthentication(options =>
         {
@@ -35,7 +31,7 @@ internal static class GitHubAuthExtensions
             options.ClientId = clientId;
             options.ClientSecret = clientSecret;
             options.ClaimActions.MapJsonKey(GitHubAvatarUrl, GitHubAvatarUrl);
-            options.Events.OnCreatingTicket = c => CreateTickAsync(c, productTeamOrg, productTeamSlug);
+            options.Events.OnCreatingTicket = c => CreateTickAsync(c);
             options.Events.OnTicketReceived = c =>
             {
                 if (c.Principal?.IsInRole("product-team") != true)
@@ -45,41 +41,16 @@ internal static class GitHubAuthExtensions
         });
     }
 
-    private static async Task CreateTickAsync(OAuthCreatingTicketContext context, string productTeamOrg, string productTeamSlug)
+    private static async Task CreateTickAsync(OAuthCreatingTicketContext context)
     {
-        Debug.Assert(context.AccessToken is not null);
         Debug.Assert(context.Identity?.Name is not null);
 
-        var accessToken = context.AccessToken;
         var userName = context.Identity.Name;
-        var isMember = await IsMemberOfTeamAsync(accessToken, productTeamOrg, productTeamSlug, userName);
+
+        var productTeamService = context.HttpContext.RequestServices.GetRequiredService<ProductTeamService>();
+        var isMember = await productTeamService.IsMemberAsync(userName);
 
         if (isMember)
             context.Identity.AddClaim(new Claim(context.Identity.RoleClaimType, ProductTeamRole));
-    }
-
-    private static async Task<bool> IsMemberOfTeamAsync(string accessToken, string orgName, string teamSlug, string userName)
-    {
-        try
-        {
-            var productInformation = new ProductHeaderValue("themesofdotnet");
-            var client = new GitHubClient(productInformation)
-            {
-                Credentials = new Credentials(accessToken)
-            };
-
-            var uri = new Uri(client.Connection.BaseAddress, $"orgs/{orgName}/teams/{teamSlug}/memberships/{userName}");
-            var result = await client.Connection.GetResponse<TeamMembershipDetails>(uri);
-            return result.Body.State.Value == MembershipState.Active;
-        }
-        catch (NotFoundException)
-        {
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-            return false;
-        }
     }
 }

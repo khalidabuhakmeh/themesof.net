@@ -24,6 +24,7 @@ builder.Services.AddSingleton<IGitHubEventProcessor>(p => p.GetRequiredService<G
 builder.Services.AddSingleton<GitHubCrawlerService>();
 builder.Services.AddSingleton<AzureDevOpsCrawlerService>();
 builder.Services.AddSingleton<OspoCrawlerService>();
+builder.Services.AddSingleton<ProductTeamService>();
 builder.Services.AddHotKeys();
 
 var gitHubWebHookSecret = builder.Configuration["GitHubWebHookSecret"];
