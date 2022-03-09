@@ -54,6 +54,18 @@ public static class GitHubActions
         Message("warning", message, fileName, line, endLine, column, endColumn);
     }
 
+    public static void Warning(Exception exception)
+    {
+        if (!IsRunningInside)
+        {
+            AnsiConsole.WriteException(exception);
+        }
+        else
+        {
+            Warning(exception.ToString());
+        }
+    }
+
     public static void Error(Exception exception)
     {
         if (!IsRunningInside)

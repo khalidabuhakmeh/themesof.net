@@ -174,8 +174,8 @@ public sealed class GitHubBatchCrawler : GitHubCrawler
                     }
                     catch (Exception ex)
                     {
-                        GitHubActions.Error($"Can't fetch {linkedId}, linked from {issue.GetId()}");
-                        GitHubActions.Error(ex);
+                        GitHubActions.Warning($"Can't fetch {linkedId}, linked from {issue.GetId()}");
+                        GitHubActions.Warning(ex);
                     }
                 }
             }
@@ -196,8 +196,8 @@ public sealed class GitHubBatchCrawler : GitHubCrawler
             }
             catch (Exception ex)
             {
-                GitHubActions.Error("Can't fetch timeline:");
-                GitHubActions.Error(ex);
+                GitHubActions.Warning("Can't fetch timeline:");
+                GitHubActions.Warning(ex);
             }
         }
 
