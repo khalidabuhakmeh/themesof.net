@@ -151,8 +151,10 @@ public sealed class WorkItemRoadmap
 
         if (workItem.Original is AzureDevOpsWorkItem item)
         {
-            if (config.AzureDevOpsQueryById.TryGetValue(item.QueryId, out var queryConfiguration))
-                defaultProductName = queryConfiguration.DefaultProduct;
+            // TODO: The Azure DevOps configuration should probably allow to default the product based on area path
+            //
+            // if (config.AzureDevOpsQueryById.TryGetValue(item.QueryId, out var queryConfiguration))
+            //     defaultProductName = queryConfiguration.DefaultProduct;
         }
 
         if (workItem.Original is GitHubIssue issue)

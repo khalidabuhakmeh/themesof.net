@@ -1,9 +1,11 @@
-﻿namespace ThemesOfDotNet.Indexing.AzureDevOps;
+﻿using System.Text.Json.Serialization;
+
+namespace ThemesOfDotNet.Indexing.AzureDevOps;
 
 public sealed class AzureDevOpsWorkItem
 {
-    public AzureDevOpsWorkItem(string queryId,
-                               int id,
+    public AzureDevOpsWorkItem(string server,
+                               int number,
                                string type,
                                string title,
                                string state,
@@ -18,8 +20,10 @@ public sealed class AzureDevOpsWorkItem
                                string url,
                                IReadOnlyList<string> tags,
                                IReadOnlyList<AzureDevOpsFieldChange> changes,
-                               IReadOnlyList<int> childIds)
+                               IReadOnlyList<int> childNumbers)
     {
+
+        ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(title);
         ArgumentNullException.ThrowIfNull(state);
@@ -27,10 +31,9 @@ public sealed class AzureDevOpsWorkItem
         ArgumentNullException.ThrowIfNull(url);
         ArgumentNullException.ThrowIfNull(tags);
         ArgumentNullException.ThrowIfNull(changes);
-        ArgumentNullException.ThrowIfNull(childIds);
-
-        QueryId = queryId;
-        Id = id;
+        ArgumentNullException.ThrowIfNull(childNumbers);
+        Server = server;
+        Number = number;
         Type = type;
         Title = title;
         State = state;
@@ -45,11 +48,12 @@ public sealed class AzureDevOpsWorkItem
         Url = url;
         Tags = tags;
         Changes = changes;
-        ChildIds = childIds;
+        ChildNumbers = childNumbers;
+        Queries = Array.Empty<AzureDevOpsQueryId>();
     }
 
-    public string QueryId { get; }
-    public int Id { get; }
+    public string Server { get; }
+    public int Number { get; }
     public string Type { get; }
     public string Title { get; }
     public string State { get; }
@@ -64,5 +68,9 @@ public sealed class AzureDevOpsWorkItem
     public string Url { get; }
     public IReadOnlyList<string> Tags { get; }
     public IReadOnlyList<AzureDevOpsFieldChange> Changes { get; }
-    public IReadOnlyList<int> ChildIds { get; }
+    public IReadOnlyList<int> ChildNumbers { get; }
+    public IReadOnlyList<AzureDevOpsQueryId> Queries { get; set; }
+
+    [JsonIgnore]
+    public AzureDevOpsWorkItemId Id => new(Server, Number);
 }

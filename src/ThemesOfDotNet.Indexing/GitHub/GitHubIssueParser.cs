@@ -6,6 +6,8 @@ using Markdig.Parsers;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
+using ThemesOfDotNet.Indexing.AzureDevOps;
+
 namespace ThemesOfDotNet.Indexing.GitHub;
 
 public static class GitHubIssueParser
@@ -15,7 +17,7 @@ public static class GitHubIssueParser
         .UseAutoLinks()
         .Build();
 
-    public static IEnumerable<GitHubIssueLink> ParseLinks(GitHubRepoId repoId, string? markdown)
+    public static GitHubIssueLinkage ParseLinkage(GitHubRepoId repoId, string? markdown)
     {
         var document = MarkdownParser.Parse(markdown ?? string.Empty, _pipeline);
 
@@ -24,57 +26,58 @@ public static class GitHubIssueParser
                                   .Where(l => (l.FirstChild?.ToString()?.Trim() ?? string.Empty).StartsWith("Parent"))
                                   .ToArray();
 
+        var issueLinks = new List<GitHubIssueLink>();
+        var workItemLinks = new List<GitHubWorkItemLink>();
+        var queryIds = new List<AzureDevOpsQueryId>();
+
         foreach (var parentLink in parentLinks)
         {
-            if (GitHubIssueId.TryParse(parentLink.Url, out var id))
-            {
-                yield return new(GitHubIssueLinkType.Parent, id);
+            if (ProcessParentUrl(parentLink.Url))
                 break;
-            }
         }
 
-        var taskLinkItems = document.Descendants<TaskList>()
+        var taskListItems = document.Descendants<TaskList>()
                                     .Select(t => t.Parent)
                                     .Where(t => t is not null)
                                     .Select(t => t!);
 
-        foreach (var taskListItem in taskLinkItems)
+        foreach (var taskListItem in taskListItems)
         {
             var links = taskListItem.Descendants<LinkInline>();
 
-            GitHubIssueId? id = null;
+            var found = false;
 
             foreach (var link in links)
             {
-                if (GitHubIssueId.TryParse(link.Url, out var i))
+                if (ProcessChildUrl(link.Url))
                 {
-                    id = i;
+                    found = true;
                     break;
                 }
             }
 
-            if (id == null)
+            if (!found)
             {
                 var autoLinks = taskListItem.Descendants<AutolinkInline>();
 
                 foreach (var autoLink in autoLinks)
                 {
-                    if (GitHubIssueId.TryParse(autoLink.Url, out var i))
+                    if (ProcessChildUrl(autoLink.Url))
                     {
-                        id = i;
+                        found = true;
                         break;
                     }
                 }
             }
 
-            if (id == null)
+            if (!found)
             {
                 var literalInlines = taskListItem.Descendants<LiteralInline>()
                                                  .Where(i => !i.ContainsParentOfType<LinkInline>());
 
                 foreach (var literalInline in literalInlines)
                 {
-                    if (id != null)
+                    if (found)
                         break;
 
                     foreach (Match match in Regex.Matches(literalInline.Content.ToString(), @"((?<owner>[a-zA-Z0-9._-]+)/(?<repo>[a-zA-Z0-9._-]+))?#(?<number>[0-9]+)"))
@@ -91,15 +94,61 @@ public static class GitHubIssueParser
 
                         if (int.TryParse(numberText, out var number))
                         {
-                            id = new GitHubIssueId(linkOwner, linkRepo, number);
+                            var issueId = new GitHubIssueId(linkOwner, linkRepo, number);
+                            issueLinks.Add(new GitHubIssueLink(GitHubIssueLinkType.Child, issueId));
+                            found = true;
                             break;
                         }
                     }
                 }
             }
+        }
 
-            if (id != null)
-                yield return new(GitHubIssueLinkType.Child, id.Value);
+        return new GitHubIssueLinkage(issueLinks.ToArray(),
+                                      workItemLinks.ToArray(),
+                                      queryIds.ToArray());
+
+        bool ProcessParentUrl(string? url)
+        {
+            if (url is not null)
+            {
+                if (GitHubIssueId.TryParse(url, out var issueId))
+                {
+                    issueLinks.Add(new GitHubIssueLink(GitHubIssueLinkType.Parent, issueId));
+                    return true;
+                }
+                else if (AzureDevOpsWorkItemId.TryParse(url, out var workItemId))
+                {
+                    workItemLinks.Add(new GitHubWorkItemLink(GitHubIssueLinkType.Parent, workItemId));
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool ProcessChildUrl(string? url)
+        {
+            if (url is not null)
+            {
+                if (GitHubIssueId.TryParse(url, out var issueId))
+                {
+                    issueLinks.Add(new GitHubIssueLink(GitHubIssueLinkType.Child, issueId));
+                    return true;
+                }
+                else if (AzureDevOpsWorkItemId.TryParse(url, out var workItemId))
+                {
+                    workItemLinks.Add(new GitHubWorkItemLink(GitHubIssueLinkType.Child, workItemId));
+                    return true;
+                }
+                else if (AzureDevOpsQueryId.TryParse(url, out var queryId))
+                {
+                    queryIds.Add(queryId);
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

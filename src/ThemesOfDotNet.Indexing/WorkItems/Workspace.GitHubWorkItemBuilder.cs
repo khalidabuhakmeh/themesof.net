@@ -44,7 +44,9 @@ public sealed partial class Workspace
 
             foreach (var issue in gitHubIssues)
             {
-                foreach (var link in GitHubIssueParser.ParseLinks(issue.Repo.GetId(), issue.Body))
+                var linkage = GitHubIssueParser.ParseLinkage(issue.Repo.GetId(), issue.Body);
+
+                foreach (var link in linkage.IssueLinks)
                 {
                     var parentId = issue.GetId();
                     var childId = link.LinkedId;
@@ -56,6 +58,25 @@ public sealed partial class Workspace
                         (parentId, childId) = (childId, parentId);
 
                     _workItemBuilder.AddChild(parentId.ToString(), childId.ToString());
+                }
+
+                foreach (var link in linkage.WorkItemLinks)
+                {
+                    var parentId = issue.GetId().ToString();
+                    var childId = link.LinkedId.ToString();
+
+                    if (link.LinkType == GitHubIssueLinkType.Parent)
+                        (parentId, childId) = (childId, parentId);
+
+                    _workItemBuilder.AddChild(parentId, childId);
+                }
+
+                foreach (var queryId in linkage.QueryIds)
+                {
+                    var parentId = issue.GetId().ToString();
+                    var childId = queryId.ToString();
+
+                    _workItemBuilder.AddChild(parentId, childId);
                 }
             }
 

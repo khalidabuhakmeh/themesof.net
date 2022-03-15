@@ -33,75 +33,28 @@ public sealed partial class Workspace
             ArgumentNullException.ThrowIfNull(configuration);
             ArgumentNullException.ThrowIfNull(azureDevOpsWorkItems);
 
-            var workItemsByQueryId = azureDevOpsWorkItems.ToLookup(wi => wi.QueryId);
-
-            foreach (var query in configuration.AzureDevOpsQueries)
+            foreach (var azureDevOpsWorkItem in azureDevOpsWorkItems)
             {
-                var workItems = workItemsByQueryId[query.QueryId];
-                var childIdSet = workItems.SelectMany(wi => wi.ChildIds).ToHashSet();
-                var topLevelItems = workItems.Where(wi => !childIdSet.Contains(wi.Id));
+                var itemId = azureDevOpsWorkItem.Id;
+                var itemIdText = itemId.ToString();
 
-                var firstWorkItem = workItems.MinBy(wi => wi.CreatedAt);
+                foreach (var childNumber in azureDevOpsWorkItem.ChildNumbers)
+                {
+                    var childId = new AzureDevOpsWorkItemId(itemId.ServerUrl, childNumber);
+                    var childIdText = childId.ToString();
+                    _workItemBuilder.AddChild(itemIdText, childIdText);
+                }
 
-                var id = GetQueryId(query);
-
-                foreach (var topLevelItem in topLevelItems)
-                    _workItemBuilder.AddChild(id, GetWorkItemId(topLevelItem.Id));
-
-                var url = query.HtmlUrl;
-                var isPrivate = true;
-                var isBottomUp = false;
-                var state = WorkItemState.Proposed;
-                var kind = WorkItemKind.Theme;
-                var title = query.ThemeTitle;
-                var milestone = (WorkItemMilestone?)null;
-                var priority = (int?)null;
-                var cost = (WorkItemCost?)null;
-                var createdAt = firstWorkItem?.CreatedAt ?? DateTime.Now;
-                var createdBy = firstWorkItem?.CreatedBy is not null
-                    ? _userBuilder.GetUserForMicrosoftAlias(firstWorkItem.CreatedBy)
-                    : _userBuilder.GetUserForGitHubLogin("dotnet-bot");
-                var assignees = query.ThemeAssignees.Select(a => _userBuilder.GetUserForMicrosoftAlias(a)).ToArray();
-                var areas = query.Area is null
-                    ? Array.Empty<string>()
-                    : new[] { query.Area };
-                var teams = Array.Empty<string>();
-                var changes = Array.Empty<WorkItemChange>();
-
-                var workItem = new WorkItem(_workspace,
-                                            query,
-                                            id,
-                                            url,
-                                            isPrivate,
-                                            isBottomUp,
-                                            state,
-                                            kind,
-                                            title,
-                                            priority,
-                                            cost,
-                                            createdAt,
-                                            createdBy,
-                                            milestone,
-                                            assignees,
-                                            areas,
-                                            teams,
-                                            changes);
-                _workItemBuilder.AddWorkItem(workItem);
+                foreach (var queryId in azureDevOpsWorkItem.Queries)
+                {
+                    var queryIdText = queryId.ToString();
+                    _workItemBuilder.AddVirtualParent(itemIdText, queryIdText);
+                }
             }
 
             foreach (var azureDevOpsWorkItem in azureDevOpsWorkItems)
             {
-                var parentId = azureDevOpsWorkItem.Id;
-
-                foreach (var childId in azureDevOpsWorkItem.ChildIds)
-                    _workItemBuilder.AddChild(GetWorkItemId(parentId), GetWorkItemId(childId));
-            }
-
-            foreach (var azureDevOpsWorkItem in azureDevOpsWorkItems)
-            {
-                var query = configuration.AzureDevOpsQueryById[azureDevOpsWorkItem.QueryId];
-
-                var id = GetId(azureDevOpsWorkItem);
+                var id = azureDevOpsWorkItem.Id.ToString();
                 var url = azureDevOpsWorkItem.Url;
                 var isPrivate = true;
                 var isBottomUp = IsBottomUp(azureDevOpsWorkItem.Tags);
@@ -116,9 +69,7 @@ public sealed partial class Workspace
                 var assignees = string.IsNullOrEmpty(azureDevOpsWorkItem.AssignedTo)
                     ? Array.Empty<WorkItemUser>()
                     : new[] { _userBuilder.GetUserForMicrosoftAlias(azureDevOpsWorkItem.AssignedTo) };
-                var areas = query.Area is null
-                    ? Array.Empty<string>()
-                    : new[] { query.Area };
+                var areas = Array.Empty<string>();
                 var teams = ConvertTeams(configuration, areas, azureDevOpsWorkItem.Tags);
                 var changes = ConvertChanges(azureDevOpsWorkItem);
 
@@ -144,39 +95,10 @@ public sealed partial class Workspace
             }
         }
 
-        private static string GetQueryId(AzureDevOpsQueryConfiguration query)
-        {
-            return "azdo-" + query.QueryId;
-        }
-
-        private static string GetId(AzureDevOpsWorkItem workItem)
-        {
-            return GetWorkItemId(workItem.Id);
-        }
-
-        private static string GetWorkItemId(int id)
-        {
-            return $"azdo#{id}";
-        }
-
         private static bool IsBottomUp(IEnumerable<string> tags)
         {
             return tags.Any(t => string.Equals(t, Constants.LabelBottomUpWork, StringComparison.OrdinalIgnoreCase) ||
                                  string.Equals(t, Constants.LabelContinuousImprovement, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static bool IsOpen(AzureDevOpsWorkItem item)
-        {
-            var state = ConvertState(item.State);
-            return state switch
-            {
-                WorkItemState.Proposed or
-                WorkItemState.Committed or
-                WorkItemState.InProgress => true,
-                WorkItemState.Completed or
-                WorkItemState.Cut => false,
-                _ => throw new Exception($"Unexpected state: {state}")
-            };
         }
 
         private static WorkItemState ConvertState(string state)

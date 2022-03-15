@@ -7,12 +7,25 @@ using ThemesOfDotNet.Indexing.Configuration;
 
 namespace ThemesOfDotNet.Indexing.AzureDevOps;
 
-public sealed class AzureDevOpsQueryCrawler
+// TODO: Add support for indexing GitHub links
+
+public sealed class AzureDevOpsCrawler
 {
     private readonly string _token;
     private readonly AzureDevOpsCache _cache;
 
-    public AzureDevOpsQueryCrawler(string token, AzureDevOpsCache cache)
+    private readonly HashSet<AzureDevOpsQueryId> _crawledQueries = new();
+    private readonly List<AzureDevOpsQueryId> _pendingQueries = new();
+
+    private readonly HashSet<AzureDevOpsWorkItemId> _crawledItems = new();
+    private readonly List<AzureDevOpsWorkItemId> _pendingItems = new();
+
+    private readonly Dictionary<AzureDevOpsWorkItemId, AzureDevOpsWorkItem> _workItemById = new();
+    private readonly Dictionary<AzureDevOpsWorkItemId, List<AzureDevOpsQueryId>> _queriesByWorkItemId = new();
+
+    private readonly Dictionary<string, WorkItemTrackingHttpClient> _clientByServerUrl = new(StringComparer.OrdinalIgnoreCase);
+
+    public AzureDevOpsCrawler(string token, AzureDevOpsCache cache)
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(cache);
@@ -21,77 +34,132 @@ public sealed class AzureDevOpsQueryCrawler
         _cache = cache;
     }
 
-    public async Task CrawlAsync(IReadOnlyCollection<AzureDevOpsQueryConfiguration> queries)
-    {
-        ArgumentNullException.ThrowIfNull(queries);
+    public bool HasPendingWork => _pendingItems.Count > 0 ||
+                                  _pendingQueries.Count > 0;
 
+    public void Enqueue(AzureDevOpsQueryId query)
+    {
+        if (_crawledQueries.Add(query))
+            _pendingQueries.Add(query);
+    }
+
+    public void Enqueue(AzureDevOpsWorkItemId item)
+    {
+        if (_crawledItems.Add(item))
+            _pendingItems.Add(item);
+    }
+
+    public async Task CrawlPendingAsync()
+    {
+        while (_pendingQueries.Any() || _pendingItems.Any())
+        {
+            // Crawl pending queries
+
+            var pendingQueries = _pendingQueries.ToArray();
+            _pendingQueries.Clear();
+
+            foreach (var query in pendingQueries)
+                await CrawlAsync(query);
+
+            // Crawl pending items
+
+            var pendingItems = _pendingItems.ToArray();
+            _pendingItems.Clear();
+
+            if (pendingItems.Length > 0)
+                await CrawlAsync(pendingItems);
+
+            // Record which queries a given work item was included in
+
+            foreach (var workItem in _workItemById.Values)
+            {
+                if (_queriesByWorkItemId.TryGetValue(workItem.Id, out var queries))
+                    workItem.Queries = queries.ToArray();
+            }
+        }
+    }
+
+    public async Task SaveAsync()
+    {
         try
         {
-            var workItems = new List<AzureDevOpsWorkItem>();
-
-            foreach (var query in queries)
-            {
-                Console.WriteLine($"Fetching query {query.QueryId} from {query.Url}...");
-
-                var queryItems = await QueryAsync(query);
-                workItems.AddRange(queryItems);
-            }
-
-            Console.WriteLine($"Caching {workItems.Count:N0} work items...");
+            var workItems = _workItemById.Values.OrderBy(i => i.Id).ToArray();
+            Console.WriteLine($"Caching {workItems.Length:N0} work items...");
             await _cache.StoreAsync(workItems);
         }
         catch (Exception ex)
         {
-            GitHubActions.Error("Can't crawl Azure DevOps:");
+            GitHubActions.Error("Can't save Azure DevOps cache:");
             GitHubActions.Error(ex);
         }
     }
 
-    private async Task<IReadOnlyList<AzureDevOpsWorkItem>> QueryAsync(AzureDevOpsQueryConfiguration query)
+    private async Task CrawlAsync(AzureDevOpsQueryId query)
     {
-        var url = new Uri(query.Url);
-        var connection = new VssConnection(url, new VssBasicCredential(string.Empty, _token));
-        var client = connection.GetClient<WorkItemTrackingHttpClient>();
-        var itemQueryResults = await client.QueryByIdAsync(new Guid(query.QueryId));
+        var client = GetClient(query.ServerUrl);
+        var itemQueryResults = await client.QueryByIdAsync(new Guid(query.Id));
+        var rootNumbers = GetRoots(itemQueryResults);
 
-        var workItemRelations = itemQueryResults.WorkItemRelations ?? Enumerable.Empty<WorkItemLink>();
-
-        var itemIds = workItemRelations.Select(rel => rel.Target)
-              .Concat(workItemRelations.Select(rel => rel.Source))
-              .Where(r => r != null)
-              .Select(r => r.Id)
-              .ToHashSet();
-
-        var childIdsByParentId = new Dictionary<int, List<int>>();
-
-        foreach (var link in workItemRelations)
+        foreach (var itemNumber in rootNumbers)
         {
-            if (link.Source == null || link.Target == null)
-                continue;
-
-            if (link.Rel != "System.LinkTypes.Hierarchy-Forward")
-                continue;
-
-            var parentId = link.Source.Id;
-            var childId = link.Target.Id;
-
-            if (!childIdsByParentId.TryGetValue(parentId, out var childIds))
+            var itemId = new AzureDevOpsWorkItemId(query.ServerUrl, itemNumber);
+            
+            if (!_queriesByWorkItemId.TryGetValue(itemId, out var queries))
             {
-                childIds = new List<int>();
-                childIdsByParentId.Add(parentId, childIds);
+                queries = new List<AzureDevOpsQueryId>();
+                _queriesByWorkItemId.Add(itemId, queries);
             }
 
-            childIds.Add(childId);
+            queries.Add(query);
         }
 
-        var items = await GetWorkItemsAsync(client, itemIds);
+        await CrawlAsync(client, rootNumbers);
 
-        var workItems = new List<AzureDevOpsWorkItem>();
+        static IReadOnlyList<int> GetRoots(WorkItemQueryResult result)
+        {
+            if (result.WorkItems is not null)
+                return result.WorkItems.Select(wr => wr.Id).ToArray();
+
+            if (result.WorkItemRelations is not null)
+            {
+                return result.WorkItemRelations.Where(r => r.Rel is null &&
+                                                           r.Source is null &&
+                                                           r.Target is not null)
+                                               .Select(r => r.Target.Id)
+                                               .ToArray();
+            }
+
+            return Array.Empty<int>();
+        }
+    }
+
+    private async Task CrawlAsync(IEnumerable<AzureDevOpsWorkItemId> items)
+    {
+        foreach (var itemGroup in items.GroupBy(i => i.ServerUrl))
+        {
+            var client = GetClient(itemGroup.Key);
+            var numbers = itemGroup.Select(i => i.Number);
+            await CrawlAsync(client, numbers);
+        }
+    }
+
+    private async Task CrawlAsync(WorkItemTrackingHttpClient client, IEnumerable<int> itemNumbers)
+    {
+        var items = await GetWorkItemsAsync(client, itemNumbers.OrderBy(i => i));
 
         foreach (var item in items)
         {
-            var queryId = query.QueryId;
-            var id = item.Id!.Value;
+            var server = client.BaseAddress.ToString();
+            if (server.EndsWith('/'))
+                server = server.Substring(0, server.Length - 1);
+
+            var number = item.Id!.Value;
+            var id = new AzureDevOpsWorkItemId(server, number);
+            if (_workItemById.ContainsKey(id))
+                continue;
+
+            Console.WriteLine($"Crawling work item {id}...");
+
             var type = GetFieldAsString(item, "System.WorkItemType")!;
             var title = GetFieldAsString(item, "System.Title")!;
             var state = GetFieldAsString(item, "System.State")!;
@@ -105,12 +173,15 @@ public sealed class AzureDevOpsQueryCrawler
             var createdBy = GetFieldAsAlias(item, "System.CreatedBy")!;
             var itemUrl = GetUrl(item);
             var tags = GetFieldAsTags(item, "System.Tags");
-            var changes = await GetFieldChangesAsync(client, id);
-            var childIds = GetChildIds(item, childIdsByParentId);
+            var changes = await GetFieldChangesAsync(client, number);
+            var childIds = GetChildIds(item);
+
+            foreach (var childId in childIds)
+                Enqueue(new AzureDevOpsWorkItemId(server, childId));
 
             var workItem = new AzureDevOpsWorkItem(
-                queryId,
-                id,
+                server,
+                number,
                 type,
                 title,
                 state,
@@ -128,10 +199,8 @@ public sealed class AzureDevOpsQueryCrawler
                 childIds
             );
 
-            workItems.Add(workItem);
+            _workItemById.Add(workItem.Id, workItem);
         }
-
-        return workItems.ToArray();
 
         static string? GetFieldAsString(WorkItem item, string fieldName)
         {
@@ -182,12 +251,39 @@ public sealed class AzureDevOpsQueryCrawler
                                    .SingleOrDefault() ?? "";
         }
 
-        static int[] GetChildIds(WorkItem item, Dictionary<int, List<int>> childIdsByParentId)
+        static int[] GetChildIds(WorkItem item)
         {
-            return childIdsByParentId.TryGetValue(item.Id!.Value, out var childIdList)
-                     ? childIdList.ToArray()
-                     : Array.Empty<int>();
+            if (item.Relations is null)
+                return Array.Empty<int>();
+
+            var result = new List<int>();
+
+            foreach (var link in item.Relations)
+            {
+                if (link.Rel != "System.LinkTypes.Hierarchy-Forward")
+                    continue;
+
+                var url = new Uri(link.Url);
+                var number = int.Parse(url.Segments.Last());
+                result.Add(number);
+            }
+
+            return result.ToArray();
         }
+    }
+
+    private WorkItemTrackingHttpClient GetClient(string serverUrl)
+    {
+        if (!_clientByServerUrl.TryGetValue(serverUrl, out var result))
+        {
+            var url = new Uri(serverUrl);
+            var connection = new VssConnection(url, new VssBasicCredential(string.Empty, _token));
+            var client = connection.GetClient<WorkItemTrackingHttpClient>();
+            _clientByServerUrl.Add(serverUrl, client);
+            result = client;
+        }
+
+        return result;
     }
 
     private static async Task<List<WorkItem>> GetWorkItemsAsync(WorkItemTrackingHttpClient client, IEnumerable<int> ids)
@@ -223,8 +319,6 @@ public sealed class AzureDevOpsQueryCrawler
 
     private static async Task<IReadOnlyList<AzureDevOpsFieldChange>> GetFieldChangesAsync(WorkItemTrackingHttpClient client, int id)
     {
-        Console.WriteLine($"Fetching fields updates for {id}...");
-
         var result = new List<AzureDevOpsFieldChange>();
         var workItemUpdates = await client.GetUpdatesAsync(id);
 
@@ -330,5 +424,68 @@ public sealed class AzureDevOpsQueryCrawler
             return Array.Empty<string>();
         else
             return text.Split(';');
+    }
+
+    // Incremental updates
+
+    public void LoadFromCache(IReadOnlyList<AzureDevOpsWorkItem> workItems)
+    {
+        ArgumentNullException.ThrowIfNull(workItems);
+
+        _crawledQueries.Clear();
+        _pendingQueries.Clear();
+
+        _crawledItems.Clear();
+        _pendingItems.Clear();
+
+        _workItemById.Clear();
+        _queriesByWorkItemId.Clear();
+
+        _clientByServerUrl.Clear();
+
+        foreach (var workItem in workItems)
+        {
+            _crawledItems.Add(workItem.Id);
+            _workItemById.Add(workItem.Id, workItem);
+
+            _crawledQueries.UnionWith(workItem.Queries);
+            _queriesByWorkItemId.Add(workItem.Id, workItem.Queries.ToList());
+        }
+    }
+
+    public Task UpdateAsync()
+    {
+        // Snapshot IDs of all queries and items we have crawled
+        //
+        // NOTE: This includes any pending work too.
+
+        var queries = _crawledQueries.ToArray();
+        var items = _crawledItems.ToArray();
+
+        // Now clear the entire state...
+
+        _crawledQueries.Clear();
+        _pendingQueries.Clear();
+
+        _crawledItems.Clear();
+        _pendingItems.Clear();
+
+        _workItemById.Clear();
+        _queriesByWorkItemId.Clear();
+
+        // ...and re-queue all queries and items and crawl them again.
+
+        foreach (var query in queries)
+            Enqueue(query);
+
+        foreach (var item in items)
+            Enqueue(item);
+
+        return CrawlPendingAsync();
+    }
+
+    public void GetSnapshot(out IReadOnlyList<AzureDevOpsWorkItem> workitems)
+    {
+        workitems = _workItemById.Values.ToArray();
     }
 }

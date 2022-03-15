@@ -21,7 +21,6 @@ builder.Services.AddScoped<WorkItemAccessCheckService>();
 builder.Services.AddGitHubAuth(builder.Configuration);
 builder.Services.AddSingleton<GitHubEventProcessingService>();
 builder.Services.AddSingleton<IGitHubEventProcessor>(p => p.GetRequiredService<GitHubEventProcessingService>());
-builder.Services.AddSingleton<GitHubCrawlerService>();
 builder.Services.AddSingleton<AzureDevOpsCrawlerService>();
 builder.Services.AddSingleton<OspoCrawlerService>();
 builder.Services.AddSingleton<ProductTeamService>();
@@ -31,13 +30,7 @@ var gitHubWebHookSecret = builder.Configuration["GitHubWebHookSecret"];
 
 var app = builder.Build();
 
-// Intialize GitHub crawler
-
-var gitHubCrawlerService = app.Services.GetRequiredService<GitHubCrawlerService>();
-await gitHubCrawlerService.InitializeAsync();
-
-
-// Create workspace
+// Intialize workspace service
 
 var workspaceService = app.Services.GetRequiredService<WorkspaceService>();
 await workspaceService.InitializeAsync();

@@ -126,16 +126,12 @@ static async Task<int> CrawlAsync(SubscriptionConfiguration subscriptionConfigur
     await configurationCache.StoreAsync(subscriptionConfiguration);
 
     var releaseCrawler = new ReleaseCrawler(releaseCache);
-    await releaseCrawler.CrawlAsync();
-
-    var gitHubCrawler = new GitHubBatchCrawler(gitHubAppId, gitHubAppPrivateKey, gitHubCache);
-    await gitHubCrawler.CrawlAsync(subscriptionConfiguration.GitHubOrgs);
-
-    var azureDevOpsCrawler = new AzureDevOpsQueryCrawler(azureDevOpsToken, azureDevOpsCache);
-    await azureDevOpsCrawler.CrawlAsync(subscriptionConfiguration.AzureDevOpsQueries);
-
+    var gitHubCrawler = new GitHubCrawler(gitHubAppId, gitHubAppPrivateKey, gitHubCache);
+    var azureDevOpsCrawler = new AzureDevOpsCrawler(azureDevOpsToken, azureDevOpsCache);
     var ospoCrawler = new OspoCrawler(ospoToken, ospoCache);
-    await ospoCrawler.CrawlAsync();
+
+    var workspaceCrawler = new WorkspaceCrawler(workspaceDataCache, releaseCrawler, gitHubCrawler, azureDevOpsCrawler, ospoCrawler);
+    await workspaceCrawler.CrawlAsync(subscriptionConfiguration);
 
     return GitHubActions.SeenErrors ? 1 : 0;
 }

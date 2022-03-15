@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 using ThemesOfDotNet.Indexing.Validation;
 
@@ -8,10 +8,12 @@ public sealed partial class Workspace
 {
     private sealed class WorkItemBuilder
     {
-        private Dictionary<string, SortedSet<string>> _childIdsByParentId = new(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<string, SortedSet<string>> _parentIdsByChildId = new(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<string, WorkItem> _workItemById = new(StringComparer.OrdinalIgnoreCase);
-        private List<Diagnostic> _diagnostics = new();
+        private readonly Dictionary<string, SortedSet<string>> _childIdsByParentId = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SortedSet<string>> _parentIdsByChildId = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SortedSet<string>> _childrenByVirtualParent = new(StringComparer.OrdinalIgnoreCase);
+
+        private readonly Dictionary<string, WorkItem> _workItemById = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<Diagnostic> _diagnostics = new();
 
         public void AddWorkItem(WorkItem workItem)
         {
@@ -46,11 +48,26 @@ public sealed partial class Workspace
             parentIds.Add(parentId);
         }
 
+        public void AddVirtualParent(string childId, string virtualParentId)
+        {
+            ArgumentNullException.ThrowIfNull(childId);
+            ArgumentNullException.ThrowIfNull(virtualParentId);
+
+            if (!_childrenByVirtualParent.TryGetValue(virtualParentId, out var children))
+            {
+                children = new(StringComparer.OrdinalIgnoreCase);
+                _childrenByVirtualParent.Add(virtualParentId, children);
+            }
+
+            children.Add(childId);
+        }
+
         public void Build(out IReadOnlyList<WorkItem> workItems,
                           out IReadOnlyDictionary<WorkItem, IReadOnlyList<WorkItem>> parentsByChild,
                           out IReadOnlyDictionary<WorkItem, IReadOnlyList<WorkItem>> childrenByParent,
                           out IReadOnlyList<Diagnostic> diagnostics)
         {
+            ExpandVirtualParents();
             RemoveAndReportInvalidIds();
             DetectAndBreakCycles();
             UnlinkOpenChildrenInClosedParents();
@@ -64,6 +81,28 @@ public sealed partial class Workspace
                                                                 kv => (IReadOnlyList<WorkItem>)kv.Value.Select(id => _workItemById[id]).ToArray());
 
             diagnostics = _diagnostics.ToArray();
+        }
+
+        private void ExpandVirtualParents()
+        {
+            foreach (var (virtualParent, children) in _childrenByVirtualParent)
+            {
+                if (_parentIdsByChildId.TryGetValue(virtualParent, out var actualParents))
+                {
+                    _parentIdsByChildId.Remove(virtualParent);
+
+                    foreach (var actualParent in actualParents)
+                        _childIdsByParentId[actualParent].Remove(virtualParent);
+
+                    foreach (var actualParent in actualParents)
+                    {
+                        foreach (var child in children)
+                            AddChild(actualParent, child);
+                    }
+                }
+            }
+
+            _childrenByVirtualParent.Clear();
         }
 
         private void RemoveAndReportInvalidIds()
@@ -181,14 +220,6 @@ public sealed partial class Workspace
                     }
                 }
             }
-        }
-
-        private static IReadOnlyList<WorkItemUser> GetDiagnosticAssignees(WorkItem workItem)
-        {
-            if (workItem.Assignees.Any())
-                return workItem.Assignees;
-
-            return new[] { workItem.CreatedBy };
         }
     }
 }

@@ -7,6 +7,8 @@ public sealed class ReleaseCrawler
     private readonly ReleaseCache _cache;
     private readonly TimeZoneInfo _pst = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
 
+    private readonly List<ReleaseInfo> _releases = new();
+
     public ReleaseCrawler(ReleaseCache cache)
     {
         _cache = cache;
@@ -14,14 +16,35 @@ public sealed class ReleaseCrawler
 
     public async Task CrawlAsync()
     {
+        await UpdateAsync();
+    }
+
+    public void LoadFromCache(IReadOnlyList<ReleaseInfo> releases)
+    {
+        ArgumentNullException.ThrowIfNull(releases);
+
+        _releases.Clear();
+        _releases.AddRange(releases);
+    }
+
+    public async Task UpdateAsync()
+    {
         var dotnetReleases = await CrawlDotnetReleasesAsync();
         var vsReleases = await CrawlVisualStudioReleasesAsync();
 
-        var releases = new List<ReleaseInfo>(dotnetReleases.Count + vsReleases.Count);
-        releases.AddRange(dotnetReleases);
-        releases.AddRange(vsReleases);
+        _releases.Clear();
+        _releases.AddRange(dotnetReleases);
+        _releases.AddRange(vsReleases);
+    }
 
-        await _cache.StoreAsync(releases);
+    public async Task SaveAsync()
+    {
+        await _cache.StoreAsync(_releases);
+    }
+
+    public void GetSnapshot(out IReadOnlyList<ReleaseInfo> releases)
+    {
+        releases = _releases.ToArray();
     }
 
     private async Task<IReadOnlyList<ReleaseInfo>> CrawlDotnetReleasesAsync()

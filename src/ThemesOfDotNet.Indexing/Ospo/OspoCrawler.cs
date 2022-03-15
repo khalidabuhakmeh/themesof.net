@@ -5,6 +5,8 @@ public sealed class OspoCrawler
     private readonly string _token;
     private readonly OspoCache _cache;
 
+    private readonly List<OspoLink> _links = new();
+
     public OspoCrawler(string token, OspoCache cache)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -14,10 +16,36 @@ public sealed class OspoCrawler
         _cache = cache;
     }
 
+    public void LoadFromCache(IReadOnlyList<OspoLink> links)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+
+        _links.Clear();
+        _links.AddRange(links);
+    }
+
     public async Task CrawlAsync()
     {
-        Console.WriteLine("Fetching OSPO data...");
+        await UpdateAsync();
+    }
 
+    public async Task SaveAsync()
+    {
+        try
+        {
+            Console.WriteLine($"Caching {_links.Count:N0} links...");
+            await _cache.StoreAsync(_links);
+        }
+        catch (Exception ex)
+        {
+            GitHubActions.Error("Can't download OSPO information:");
+            GitHubActions.Error(ex);
+        }
+    }
+
+    public async Task UpdateAsync()
+    {
+        Console.WriteLine("Crawling OSPO data...");
         try
         {
             using var client = new OspoClient(_token);
@@ -44,13 +72,18 @@ public sealed class OspoCrawler
                 linksToBeCached.Add(link);
             }
 
-            Console.WriteLine($"Caching {linksToBeCached.Count:N0} links...");
-            await _cache.StoreAsync(linksToBeCached);
+            _links.Clear();
+            _links.AddRange(linksToBeCached);
         }
         catch (Exception ex)
         {
             GitHubActions.Error("Can't download OSPO information:");
             GitHubActions.Error(ex);
         }
+    }
+
+    public void GetSnapshot(out IReadOnlyList<OspoLink> links)
+    {
+        links = _links.ToArray();
     }
 }

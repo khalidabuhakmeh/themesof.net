@@ -1,36 +1,26 @@
 ﻿using ThemesOfDotNet.Indexing.Ospo;
-using ThemesOfDotNet.Indexing.Storage;
-using ThemesOfDotNet.Indexing.WorkItems;
 
 namespace ThemesOfDotNet.Services;
 
 public sealed class OspoCrawlerService : TimerService
 {
     private readonly ILogger<OspoCrawlerService> _logger;
-
-    private readonly WorkspaceDataCache _workspaceDataCache;
-    private readonly OspoCrawler _crawler;
+    private readonly WorkspaceService _workspaceService;
 
     public OspoCrawlerService(ILogger<OspoCrawlerService> logger,
-                              IConfiguration configuration)
+                              WorkspaceService workspaceService)
     {
-        var token = configuration["OspoToken"];
-
-        var connectionString = configuration["BlobConnectionString"];
-        var workspaceDataStore = (KeyValueStore)new AzureBlobStorageStore(connectionString, "cache");
-        _workspaceDataCache = new WorkspaceDataCache(workspaceDataStore);
-
-        _crawler = new OspoCrawler(token, _workspaceDataCache.OspoCache);
         _logger = logger;
+        _workspaceService = workspaceService;
     }
 
     public IReadOnlyList<OspoLink> Links { get; private set; } = Array.Empty<OspoLink>();
 
     protected override TimeSpan RefreshInterval => TimeSpan.FromHours(2);
 
-    protected override async Task InitializeAsync()
+    protected override Task InitializeAsync()
     {
-        Links = await _workspaceDataCache.OspoCache.LoadAsync();
+        return Task.CompletedTask;
     }
 
     protected override async Task RefreshAsync()
@@ -38,15 +28,11 @@ public sealed class OspoCrawlerService : TimerService
         _logger.LogInformation("Refreshing OSPO cache...");
         try
         {
-            await _crawler.CrawlAsync();
-            Links = await _workspaceDataCache.OspoCache.LoadAsync();
-            Changed?.Invoke(this, EventArgs.Empty);
+            await _workspaceService.UpdateOspoAsync();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while refreshing data from OSPO");
         }
     }
-
-    public event EventHandler? Changed;
 }
