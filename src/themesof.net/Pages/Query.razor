@@ -21,7 +21,7 @@
 <PageTreeView Tree="@_pageTree.Roots" />
 
 @code {
-    private const string QueryTextDefault = "group:theme is:open -is:task -is:bottomup milestone:>=6.0 milestone:<7.0";
+    private const string QueryTextDefault = "group:theme is:open -is:task -is:bottomup (no:milestone or milestone:>=6.0 milestone:<7.0)";
 
     private bool _parametersSet;
     private string _queryText = string.Empty;
