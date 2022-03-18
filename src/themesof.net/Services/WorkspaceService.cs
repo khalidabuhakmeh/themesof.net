@@ -1,4 +1,6 @@
-﻿using Terrajobst.GitHubEvents;
+﻿using System.Collections.Concurrent;
+
+using Terrajobst.GitHubEvents;
 
 using ThemesOfDotNet.Indexing.AzureDevOps;
 using ThemesOfDotNet.Indexing.GitHub;
@@ -9,11 +11,17 @@ using ThemesOfDotNet.Indexing.WorkItems;
 
 namespace ThemesOfDotNet.Services;
 
-public sealed class WorkspaceService
+public sealed class WorkspaceService : IHostedService
 {
+    private readonly ILogger<WorkspaceService> _logger;
     private readonly WorkspaceCrawler _workspaceCrawler;
-    
-    public WorkspaceService(IConfiguration configuration,
+    private readonly CancellationTokenSource _cts = new();
+    private readonly ConcurrentQueue<WorkspaceMessage> _messages = new();
+    private readonly AutoResetEvent _dataAvailable = new(false);
+    private Task? _workerTask;
+
+    public WorkspaceService(ILogger<WorkspaceService> logger,
+                            IConfiguration configuration,
                             IWebHostEnvironment environment)
     {
         var gitHubAppId = configuration["GitHubAppId"];
@@ -38,6 +46,7 @@ public sealed class WorkspaceService
         var releaseCrawler = new ReleaseCrawler(workspaceDataCache.ReleaseCache);
 
         _workspaceCrawler = new WorkspaceCrawler(workspaceDataCache, releaseCrawler, gitHubCrawler, azureDevOpsCrawler, ospoCrawler);
+        _logger = logger;
     }
 
     public Workspace Workspace { get; private set; } = Workspace.Empty;
@@ -51,27 +60,21 @@ public sealed class WorkspaceService
         UpdateWorkspace();
     }
 
-    public async Task UpdateGitHubAsync(GitHubEventMessage message)
+    public void UpdateGitHub(GitHubEventMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        await _workspaceCrawler.UpdateGitHubAsync(message);
-
-        UpdateWorkspace();
+        Post(new UpdateGitHubWorkspaceMessage(message));
     }
 
-    public async Task UpdateAzureDevOpsAsync()
+    public void UpdateAzureDevOps()
     {
-        await _workspaceCrawler.UpdateAzureDevOpsAsync();
-
-        UpdateWorkspace();
+        Post(new UpdateAzureDevOpsWorkspaceMessage());
     }
 
-    public async Task UpdateOspoAsync()
+    public void UpdateOspo()
     {
-        await _workspaceCrawler.UpdateOspoAsync();
-
-        UpdateWorkspace();
+        Post(new UpdateOspoWorkspaceMessage());
     }
 
     private void UpdateWorkspace()
@@ -79,5 +82,127 @@ public sealed class WorkspaceService
         var snapshot = _workspaceCrawler.GetSnapshot();
         Workspace = Workspace.Create(snapshot);
         WorkspaceChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _workerTask = Task.Run(async () =>
+        {
+            _logger.LogInformation("Workspace event processing started");
+            try
+            {
+                await RunAsync(_cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Workspace event processing was cancelled");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in workspace event processing");
+            }
+        }, CancellationToken.None);
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _cts.Cancel();
+        return _workerTask ?? Task.CompletedTask;
+    }
+
+    private void Post(WorkspaceMessage message)
+    {
+        _messages.Enqueue(message);
+        _dataAvailable.Set();
+    }
+
+    private async Task RunAsync(CancellationToken cancellationToken)
+    {
+        var waitHandles = new[]
+        {
+            _dataAvailable,
+            cancellationToken.WaitHandle
+        };
+
+        while (true)
+        {
+            WaitHandle.WaitAny(waitHandles);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            while (_messages.TryDequeue(out var message))
+            {
+                _logger.LogInformation("Processing message {message}", message);
+                try
+                {
+                    switch (message)
+                    {
+                        case UpdateGitHubWorkspaceMessage updateGitHub:
+                        {
+                            var handled = await _workspaceCrawler.UpdateGitHubAsync(updateGitHub.Message);
+                            if (!handled)
+                                _logger.LogInformation("Unhandled message {message}", message);
+                            UpdateWorkspace();
+                            break;
+                        }
+                        case UpdateAzureDevOpsWorkspaceMessage:
+                        {
+                            await _workspaceCrawler.UpdateAzureDevOpsAsync();
+                            UpdateWorkspace();
+                            break;
+                        }
+                        case UpdateOspoWorkspaceMessage:
+                        {
+                            await _workspaceCrawler.UpdateOspoAsync();
+                            UpdateWorkspace();
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing message {message}", message);
+                }
+            }
+        }
+    }
+
+    private abstract class WorkspaceMessage
+    {
+        public abstract override string ToString();
+    }
+
+    private sealed class UpdateGitHubWorkspaceMessage : WorkspaceMessage
+    {
+        public UpdateGitHubWorkspaceMessage(GitHubEventMessage message)
+        {
+            ArgumentNullException.ThrowIfNull(message);
+
+            Message = message;
+        }
+
+        public GitHubEventMessage Message { get; }
+
+        public override string ToString()
+        {
+            return Message.ToString();
+        }
+    }
+
+    private sealed class UpdateAzureDevOpsWorkspaceMessage : WorkspaceMessage
+    {
+        public override string ToString()
+        {
+            return "UpdateAzureDevOps";
+        }
+    }
+
+    private sealed class UpdateOspoWorkspaceMessage : WorkspaceMessage
+    {
+        public override string ToString()
+        {
+            return "UpdateOspo";
+        }
     }
 }

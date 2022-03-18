@@ -19,16 +19,18 @@ public sealed class AzureDevOpsCrawlerService : TimerService
         return Task.CompletedTask;
     }
 
-    protected override async Task RefreshAsync()
+    protected override Task RefreshAsync()
     {
         _logger.LogInformation("Refreshing AzureDevOps cache...");
         try
         {
-            await _workspaceService.UpdateAzureDevOpsAsync();
+            _workspaceService.UpdateAzureDevOps();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while refreshing data from AzureDevOps");
         }
+
+        return Task.CompletedTask;
     }
 }

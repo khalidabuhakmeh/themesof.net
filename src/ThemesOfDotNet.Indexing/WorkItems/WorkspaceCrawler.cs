@@ -84,13 +84,15 @@ public sealed class WorkspaceCrawler : IWorkspaceCrawlerQueue
         await _releaseCrawler.SaveAsync();
     }
 
-    public async Task UpdateGitHubAsync(GitHubEventMessage message)
+    public async Task<bool> UpdateGitHubAsync(GitHubEventMessage message)
     {
-        await _gitHubCrawler.UpdateAsync(message, this);
+        var result = await _gitHubCrawler.UpdateAsync(message, this);
         await CrawlPendingAsync();
 
         await _gitHubCrawler.SaveAsync();
         await _azureDevOpsCrawler.SaveAsync();
+
+        return result;
     }
 
     public async Task UpdateAzureDevOpsAsync()
