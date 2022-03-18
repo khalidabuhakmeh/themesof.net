@@ -2,13 +2,10 @@
 
 public sealed class AzureDevOpsCrawlerService : TimerService
 {
-    private readonly ILogger<AzureDevOpsCrawlerService> _logger;
     private readonly WorkspaceService _workspaceService;
 
-    public AzureDevOpsCrawlerService(ILogger<AzureDevOpsCrawlerService> logger,
-                                     WorkspaceService workspaceService)
+    public AzureDevOpsCrawlerService(WorkspaceService workspaceService)
     {
-        _logger = logger;
         _workspaceService = workspaceService;
     }
 
@@ -21,16 +18,7 @@ public sealed class AzureDevOpsCrawlerService : TimerService
 
     protected override Task RefreshAsync()
     {
-        _logger.LogInformation("Refreshing AzureDevOps cache...");
-        try
-        {
-            _workspaceService.UpdateAzureDevOps();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error while refreshing data from AzureDevOps");
-        }
-
+        _workspaceService.UpdateAzureDevOps();
         return Task.CompletedTask;
     }
 }
