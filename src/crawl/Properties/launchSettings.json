@@ -2,7 +2,7 @@
   "profiles": {
     "crawl": {
       "commandName": "Project",
-      "commandLineArgs": "P:\\themesof.net-crawler\\subscriptions.json"
+      "commandLineArgs": "P:\\themesof.net-crawler\\subscriptions.jsonc"
     }
   }
 }
