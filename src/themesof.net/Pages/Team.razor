@@ -474,7 +474,7 @@ else
         if (!IncludeMilestone(workItem.Milestone))
             return false;
 
-        if (!workItem.Areas.Any(a => IncludeArea(a)))
+        if (!IncludeArea(workItem))
             return false;
 
         if (StatusSinceFiltered)
@@ -510,12 +510,12 @@ else
         return string.Equals(milestone?.ToString() ?? string.Empty, SelectedMilestone, StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool IncludeArea(string area)
+    private bool IncludeArea(WorkItem wi)
     {
         if (SelectedArea is null || SelectedArea == "*")
             return true;      
 
-        return string.Equals(area, SelectedArea, StringComparison.OrdinalIgnoreCase);
+        return wi.Areas.Any(a => string.Equals(a, SelectedArea, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool IsIncludedByQuickFilter(PageNode node)
@@ -530,7 +530,7 @@ else
                                      .WorkItems
                                      .Where(wi => IsForMyTeam(wi) &&
                                                   IncludeMilestone(wi.Milestone) &&
-                                                  wi.Areas.Any(a => IncludeArea(a)))
+                                                  IncludeArea(wi))
                                      .Count(wi => wi.Kind == kind && wi.State == state);
         return result == 0 ? null : result;
     }
