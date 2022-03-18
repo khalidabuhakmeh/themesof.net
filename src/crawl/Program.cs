@@ -103,7 +103,7 @@ static async Task<int> RunAsync(string[] args)
 static async Task<int> CrawlAsync(SubscriptionConfiguration subscriptionConfiguration)
 {
     var config = new ConfigurationBuilder()
-        .AddUserSecrets<Program>()
+        .AddUserSecrets<Program>(optional: true)
         .AddEnvironmentVariables()
         .Build();
 
