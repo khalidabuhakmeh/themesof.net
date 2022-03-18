@@ -171,6 +171,8 @@ public sealed class AzureDevOpsCrawler
             var assignedTo = GetFieldAsAlias(item, "System.AssignedTo");
             var createdAt = GetFieldAsDateTime(item, "System.CreatedDate")!.Value;
             var createdBy = GetFieldAsAlias(item, "System.CreatedBy")!;
+            var areaPath = GetFieldAsString(item, "System.AreaPath")!;
+            var iterationPath = GetFieldAsString(item, "System.IterationPath")!;
             var itemUrl = GetUrl(item);
             var tags = GetFieldAsTags(item, "System.Tags");
             var changes = await GetFieldChangesAsync(client, number);
@@ -193,6 +195,8 @@ public sealed class AzureDevOpsCrawler
                 createdAt,
                 createdBy,
                 assignedTo,
+                areaPath,
+                iterationPath,
                 itemUrl,
                 tags,
                 changes,

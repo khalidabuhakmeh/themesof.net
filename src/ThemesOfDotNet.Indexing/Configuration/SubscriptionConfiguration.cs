@@ -51,6 +51,7 @@ public sealed class SubscriptionConfiguration
     private SubscriptionConfiguration()
     {
         GitHubOrgs = Array.Empty<GitHubOrgConfiguration>();
+        AzureDevOpsAreaMappings = new Dictionary<string, IReadOnlyList<string>>();
         Milestones = MilestoneConfiguration.Empty;
         Teams = new Dictionary<string, IReadOnlyList<TeamConfiguration>>();
         Tree = Array.Empty<AreaNodeConfiguration>();
@@ -58,11 +59,13 @@ public sealed class SubscriptionConfiguration
     }
 
     public SubscriptionConfiguration(IReadOnlyList<GitHubOrgConfiguration>? gitHubOrgs,
+                                     IReadOnlyDictionary<string, IReadOnlyList<string>>? azureDevOpsAreaMappings,
                                      MilestoneConfiguration milestones,
-                                     IReadOnlyDictionary<string, IReadOnlyList<TeamConfiguration>> teams,
+                                     IReadOnlyDictionary<string, IReadOnlyList<TeamConfiguration>>? teams,
                                      IReadOnlyList<AreaNodeConfiguration>? tree)
     {
         GitHubOrgs = gitHubOrgs ?? Array.Empty<GitHubOrgConfiguration>();
+        AzureDevOpsAreaMappings = azureDevOpsAreaMappings ?? new Dictionary<string, IReadOnlyList<string>>();
         Milestones = milestones;
         Teams = teams ?? new Dictionary<string, IReadOnlyList<TeamConfiguration>>();
         Tree = tree ?? Array.Empty<AreaNodeConfiguration>();
@@ -82,6 +85,9 @@ public sealed class SubscriptionConfiguration
 
     [JsonIgnore]
     public IReadOnlyDictionary<string, GitHubOrgConfiguration> GitHubOrgByName { get; }
+
+    [JsonConverter(typeof(CaseInsensitiveDictionaryConverter))]
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> AzureDevOpsAreaMappings { get; }
 
     public MilestoneConfiguration Milestones { get; }
 

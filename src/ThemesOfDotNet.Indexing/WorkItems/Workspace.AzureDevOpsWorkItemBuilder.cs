@@ -33,6 +33,9 @@ public sealed partial class Workspace
             ArgumentNullException.ThrowIfNull(configuration);
             ArgumentNullException.ThrowIfNull(azureDevOpsWorkItems);
 
+            var areaPathMappings = configuration.AzureDevOpsAreaMappings.Select(m => (Expression: new AzureDevOpsAreaPathExpression(m.Key), Areas: m.Value))
+                                                                        .ToArray();
+
             foreach (var azureDevOpsWorkItem in azureDevOpsWorkItems)
             {
                 var itemId = azureDevOpsWorkItem.Id;
@@ -69,7 +72,7 @@ public sealed partial class Workspace
                 var assignees = string.IsNullOrEmpty(azureDevOpsWorkItem.AssignedTo)
                     ? Array.Empty<WorkItemUser>()
                     : new[] { _userBuilder.GetUserForMicrosoftAlias(azureDevOpsWorkItem.AssignedTo) };
-                var areas = Array.Empty<string>();
+                var areas = ConvertAreaPath(areaPathMappings, azureDevOpsWorkItem.AreaPath);
                 var teams = ConvertTeams(configuration, areas, azureDevOpsWorkItem.Tags);
                 var changes = ConvertChanges(azureDevOpsWorkItem);
 
@@ -151,6 +154,23 @@ public sealed partial class Workspace
                 return WorkItemCost.ExtraLarge;
             else
                 return null;
+        }
+
+        private static IReadOnlyList<string> ConvertAreaPath(IEnumerable<(AzureDevOpsAreaPathExpression Expression, IReadOnlyList<string> Areas)> areaPathMappings,
+                                                             string? areaPath)
+        {
+            if (areaPath is null)
+                return Array.Empty<string>();
+
+            var result = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (expression, areas) in areaPathMappings)
+            {
+                if (expression.IsMatch(areaPath))
+                    result.UnionWith(areas);
+            }
+
+            return result.ToArray();
         }
 
         private static IReadOnlyList<string> ConvertTeams(SubscriptionConfiguration configuration, IReadOnlyList<string> areas, IReadOnlyList<string> tags)

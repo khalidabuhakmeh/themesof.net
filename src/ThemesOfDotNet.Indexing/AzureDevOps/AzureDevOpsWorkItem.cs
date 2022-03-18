@@ -17,6 +17,8 @@ public sealed class AzureDevOpsWorkItem
                                DateTime createdAt,
                                string createdBy,
                                string? assignedTo,
+                               string? areaPath,
+                               string? iterationPath,
                                string url,
                                IReadOnlyList<string> tags,
                                IReadOnlyList<AzureDevOpsFieldChange> changes,
@@ -45,6 +47,8 @@ public sealed class AzureDevOpsWorkItem
         CreatedAt = createdAt;
         CreatedBy = createdBy;
         AssignedTo = assignedTo;
+        AreaPath = areaPath;
+        IterationPath = iterationPath;
         Url = url;
         Tags = tags;
         Changes = changes;
@@ -65,6 +69,8 @@ public sealed class AzureDevOpsWorkItem
     public DateTime CreatedAt { get; }
     public string CreatedBy { get; }
     public string? AssignedTo { get; }
+    public string? AreaPath { get; }
+    public string? IterationPath { get; }
     public string Url { get; }
     public IReadOnlyList<string> Tags { get; }
     public IReadOnlyList<AzureDevOpsFieldChange> Changes { get; }
