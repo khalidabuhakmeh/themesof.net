@@ -76,7 +76,7 @@
             </span>
         </div>
         <div class="gh-details-cell">
-            @detailText
+            <a class="text-muted" href="@WorkItem.GetViewUrl()"><span class="oi oi-link-intact small mr-1"></span> @detailText</a>
 
             @if (@milestone is not null)
             {

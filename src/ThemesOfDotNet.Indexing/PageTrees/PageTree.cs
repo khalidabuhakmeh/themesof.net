@@ -33,6 +33,11 @@ public sealed class PageTree
         return new PageTree(roots);
     }
 
+    public static PageTree CreateTree(WorkItem root, Predicate<WorkItem> predicate)
+    {
+        return new PageTree(new[] { ToPageNode(root, predicate) });
+    }
+
     public static PageTree CreateThematicTree(Workspace workspace, Predicate<WorkItem> predicate)
     {
         var roots = workspace.RootWorkItems.Where(wi => wi.Kind == WorkItemKind.Theme && predicate(wi))

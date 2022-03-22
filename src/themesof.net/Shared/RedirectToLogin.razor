@@ -10,13 +10,6 @@
         var authenticationState = await AuthenticationStateTask;
 
         if (authenticationState?.User?.Identity?.IsAuthenticated != true)
-        {
-            var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
-
-            if (string.IsNullOrWhiteSpace(returnUrl))
-                Navigation.NavigateTo("/signin", true);
-            else
-                Navigation.NavigateTo($"/signin?returnUrl={returnUrl}", true);
-        }
+            Navigation.SignIn();
     }
 }

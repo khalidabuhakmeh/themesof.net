@@ -11,10 +11,13 @@ public class AccountController : Controller
     [HttpGet("signin")]
     public IActionResult SignIn(string returnUrl)
     {
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = "/";
+
         return Challenge(
             new AuthenticationProperties
             {
-                RedirectUri = "/" + returnUrl
+                RedirectUri = returnUrl
             },
             GitHubAuthenticationDefaults.AuthenticationScheme
         );
@@ -24,10 +27,13 @@ public class AccountController : Controller
     [HttpPost("signout")]
     public IActionResult SignOut(string returnUrl)
     {
+        if (string.IsNullOrEmpty(returnUrl))
+            returnUrl = "/";
+
         return SignOut(
             new AuthenticationProperties
             {
-                RedirectUri = "/" + returnUrl
+                RedirectUri = returnUrl
             },
             CookieAuthenticationDefaults.AuthenticationScheme
         );

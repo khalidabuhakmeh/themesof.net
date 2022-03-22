@@ -1,0 +1,125 @@
+﻿@page "/view/{*id}"
+@using System.Web
+@using ThemesOfDotNet.Services;
+@using ThemesOfDotNet.Indexing.PageTrees
+@using ThemesOfDotNet.Indexing.Querying;
+@using ThemesOfDotNet.Indexing.WorkItems;
+
+@inject WorkspaceService WorkspaceService;
+@inject WorkItemAccessCheckService WorkItemAccessCheckService;
+@inject NavigationManager NavigationManager;
+@inject QueryContextProvider QueryContextProvider;
+
+<PageTreeToolbar ExpandAllClicked="() => _pageTree.ExpandAll()"
+                 CollapseAllClicked="() => _pageTree.CollapseAll()"
+                 ExpandUnmatchedClicked="() => _pageTree.ExpandUnmatched()"
+                 @bind-QuickFilter="QuickFilter" />
+
+@if (_root is not null)
+{
+    foreach (var parent in _root.Parents.Where(_accessCheck.Perform))
+    {
+        <WorkItemCard WorkItem="@parent" />
+    }
+}
+
+<PageTreeView Tree="@_pageTree.Roots" />
+
+@code {
+    private WorkItemAccessCheck _accessCheck;
+    private bool _parametersSet;
+    private WorkItem? _root;
+    private string _quickFilter = "";
+    private WorkItemQuery _quickFilterQuery = WorkItemQuery.Empty;
+    private PageTree _pageTree = PageTree.Empty;
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name="q")]
+    public string QuickFilter
+    {
+        get => _quickFilter;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+                value = string.Empty;
+
+            if (_quickFilter != value)
+            {
+                _quickFilter = value;
+                UpdateUri();
+            }
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        _accessCheck = await WorkItemAccessCheckService.CreateAsync();
+        if (Id is not null)
+            UpdatePageTree();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _parametersSet = true;
+        UpdatePageTree();
+    }
+
+    private void UpdateUri()
+    {
+        if (!_parametersSet)
+            return;
+
+        NavigationManager.NavigateTo(GetUri(), forceLoad: false);
+        UpdatePageTree();
+    }
+
+    private string GetUri()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["q"] = QuickFilter.Length == 0 ? null : QuickFilter
+        };
+
+        return NavigationManager.GetUriWithQueryParameters(parameters);
+    }
+
+    private void UpdatePageTree()
+    {
+        if (Id is null)
+        {
+            _root = null;
+        }
+        else
+        {
+            var actualId = UrlHelpers.GetWorkItemId(Id);
+            var root = WorkspaceService.Workspace.WorkItems.SingleOrDefault(wi => string.Equals(wi.Id, actualId, StringComparison.OrdinalIgnoreCase));
+
+            if (root is not null && !_accessCheck.Perform(root))
+                NavigationManager.SignIn();
+
+            _root = root;
+        }
+
+        _pageTree = _root is null
+                    ? PageTree.Empty
+                    : PageTree.CreateTree(_root, _ => true);
+
+        if (_pageTree.Roots.Any())
+            _pageTree.Roots[0].IsExpanded = true;
+
+        _quickFilterQuery = new WorkItemQuery(QueryContextProvider.Context, QuickFilter);
+
+        if (_quickFilterQuery.Text.Length == 0)
+            _pageTree.ApplyQuickFilter(null);
+        else
+            _pageTree.ApplyQuickFilter(IsIncludedByQuickFilter);
+    }
+
+    private bool IsIncludedByQuickFilter(PageNode page)
+    {
+        return page.Data is WorkItem workItem &&
+               _quickFilterQuery.Evaluate(workItem);
+    }
+}

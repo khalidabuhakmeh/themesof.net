@@ -94,7 +94,7 @@
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a class="btn btn-dotnet" href="signin?returnUrl=@GetReturnUrl()">Sign in</a>
+                    <a class="btn btn-dotnet" href="@NavigationManager.GetSignInUrl()">Sign in</a>
                 </NotAuthorized>
             </AuthorizeView>
         </ul>
@@ -113,11 +113,6 @@
     private void ToggleNavMenu()
     {
         _collapseNavMenu = !_collapseNavMenu;
-    }
-
-    private string GetReturnUrl()
-    {
-        return HttpUtility.UrlEncode(NavigationManager.ToBaseRelativePath(NavigationManager.Uri));
     }
 
     private int? GetValidationIssues(AuthenticationState? context)

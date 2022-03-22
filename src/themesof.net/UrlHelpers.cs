@@ -1,3 +1,7 @@
+﻿using System.Web;
+
+using Microsoft.AspNetCore.Components;
+
 using ThemesOfDotNet.Indexing.WorkItems;
 
 namespace ThemesOfDotNet;
@@ -27,5 +31,33 @@ public static class UrlHelpers
             default:
                 throw new Exception(@"Unhandled value '{kind}'");
         }
+    }
+
+    public static string GetViewUrl(this WorkItem workItem)
+    {
+        return "/view/" + workItem.Id.Replace('#', '/');
+    }
+
+    public static string GetWorkItemId(string url)
+    {
+        var lastIndexOfSlash = url.LastIndexOf('/');
+        if (lastIndexOfSlash < 0)
+            return url;
+
+        return url.Remove(lastIndexOfSlash, 1)
+                  .Insert(lastIndexOfSlash, "#");
+    }
+
+    public static string GetSignInUrl(this NavigationManager navigationManager)
+    {
+        var uri = new Uri(navigationManager.Uri);
+        var returnUrl = HttpUtility.UrlEncode(uri.PathAndQuery);
+        return returnUrl == "/" ? "/signin" : $"/signin?returnUrl={returnUrl}";
+    }
+
+    public static void SignIn(this NavigationManager navigationManager)
+    {
+        var url = navigationManager.GetSignInUrl();
+        navigationManager.NavigateTo(url);
     }
 }
