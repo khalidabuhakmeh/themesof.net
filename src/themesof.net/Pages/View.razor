@@ -26,7 +26,7 @@
 <PageTreeView Tree="@_pageTree.Roots" />
 
 @code {
-    private WorkItemAccessCheck _accessCheck;
+    private WorkItemAccessCheck _accessCheck = WorkItemAccessCheck.None;
     private bool _parametersSet;
     private WorkItem? _root;
     private string _quickFilter = "";
