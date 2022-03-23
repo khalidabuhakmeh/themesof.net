@@ -40,6 +40,12 @@
         <a class="dismiss">🗙</a>
     </div>
 
+    <environment include="Development">
+        <div id="components-reconnect-modal">
+            <h4>Disconnected...</h4>
+        </div>
+    </environment>
+
     <script src="_framework/blazor.server.js"></script>
     <script src="~/js/index.js" async asp-append-version="true"></script>
 </body>
