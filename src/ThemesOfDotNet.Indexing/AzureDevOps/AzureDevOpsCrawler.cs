@@ -26,6 +26,8 @@ public sealed class AzureDevOpsCrawler
     private readonly Dictionary<string, WorkItemTrackingHttpClient> _clientByServerUrl = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, GitHubRepoId> _resolvedGitHubConnections = new();
 
+    private bool _needsSaving;
+
     public AzureDevOpsCrawler(string token, AzureDevOpsCache cache)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -84,11 +86,15 @@ public sealed class AzureDevOpsCrawler
 
     public async Task SaveAsync()
     {
+        if (!_needsSaving)
+            return;
+
         try
         {
             var workItems = _workItemById.Values.OrderBy(i => i.Id).ToArray();
             Console.WriteLine($"Caching {workItems.Length:N0} work items...");
             await _cache.StoreAsync(workItems);
+            _needsSaving = false;
         }
         catch (Exception ex)
         {
@@ -215,6 +221,7 @@ public sealed class AzureDevOpsCrawler
             );
 
             _workItemById.Add(workItem.Id, workItem);
+            _needsSaving = true;
         }
 
         static string? GetFieldAsString(WorkItem item, string fieldName)
@@ -503,6 +510,8 @@ public sealed class AzureDevOpsCrawler
             _crawledQueries.UnionWith(workItem.Queries);
             _queriesByWorkItemId.Add(workItem.Id, workItem.Queries.ToList());
         }
+
+        _needsSaving = false;
     }
 
     public Task UpdateAsync(IWorkspaceCrawlerQueue queue)
