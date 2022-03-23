@@ -3,11 +3,11 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 
-using ThemesOfDotNet.Indexing.Configuration;
+using ThemesOfDotNet.Indexing.GitHub;
+using ThemesOfDotNet.Indexing.WorkItems;
+using WorkItem = Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItem;
 
 namespace ThemesOfDotNet.Indexing.AzureDevOps;
-
-// TODO: Add support for indexing GitHub links
 
 public sealed class AzureDevOpsCrawler
 {
@@ -24,6 +24,7 @@ public sealed class AzureDevOpsCrawler
     private readonly Dictionary<AzureDevOpsWorkItemId, List<AzureDevOpsQueryId>> _queriesByWorkItemId = new();
 
     private readonly Dictionary<string, WorkItemTrackingHttpClient> _clientByServerUrl = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, GitHubRepoId> _resolvedGitHubConnections = new();
 
     public AzureDevOpsCrawler(string token, AzureDevOpsCache cache)
     {
@@ -49,8 +50,10 @@ public sealed class AzureDevOpsCrawler
             _pendingItems.Add(item);
     }
 
-    public async Task CrawlPendingAsync()
+    public async Task CrawlPendingAsync(IWorkspaceCrawlerQueue queue)
     {
+        ArgumentNullException.ThrowIfNull(queue);
+
         while (_pendingQueries.Any() || _pendingItems.Any())
         {
             // Crawl pending queries
@@ -59,7 +62,7 @@ public sealed class AzureDevOpsCrawler
             _pendingQueries.Clear();
 
             foreach (var query in pendingQueries)
-                await CrawlAsync(query);
+                await CrawlAsync(query, queue);
 
             // Crawl pending items
 
@@ -67,7 +70,7 @@ public sealed class AzureDevOpsCrawler
             _pendingItems.Clear();
 
             if (pendingItems.Length > 0)
-                await CrawlAsync(pendingItems);
+                await CrawlAsync(pendingItems, queue);
 
             // Record which queries a given work item was included in
 
@@ -94,7 +97,7 @@ public sealed class AzureDevOpsCrawler
         }
     }
 
-    private async Task CrawlAsync(AzureDevOpsQueryId query)
+    private async Task CrawlAsync(AzureDevOpsQueryId query, IWorkspaceCrawlerQueue queue)
     {
         var client = GetClient(query.ServerUrl);
         var itemQueryResults = await client.QueryByIdAsync(new Guid(query.Id));
@@ -113,7 +116,7 @@ public sealed class AzureDevOpsCrawler
             queries.Add(query);
         }
 
-        await CrawlAsync(client, rootNumbers);
+        await CrawlAsync(client, rootNumbers, queue);
 
         static IReadOnlyList<int> GetRoots(WorkItemQueryResult result)
         {
@@ -133,17 +136,19 @@ public sealed class AzureDevOpsCrawler
         }
     }
 
-    private async Task CrawlAsync(IEnumerable<AzureDevOpsWorkItemId> items)
+    private async Task CrawlAsync(IEnumerable<AzureDevOpsWorkItemId> items, IWorkspaceCrawlerQueue queue)
     {
         foreach (var itemGroup in items.GroupBy(i => i.ServerUrl))
         {
             var client = GetClient(itemGroup.Key);
             var numbers = itemGroup.Select(i => i.Number);
-            await CrawlAsync(client, numbers);
+            await CrawlAsync(client, numbers, queue);
         }
     }
 
-    private async Task CrawlAsync(WorkItemTrackingHttpClient client, IEnumerable<int> itemNumbers)
+    private async Task CrawlAsync(WorkItemTrackingHttpClient client,
+                                  IEnumerable<int> itemNumbers,
+                                  IWorkspaceCrawlerQueue queue)
     {
         var items = await GetWorkItemsAsync(client, itemNumbers.OrderBy(i => i));
 
@@ -177,10 +182,15 @@ public sealed class AzureDevOpsCrawler
             var tags = GetFieldAsTags(item, "System.Tags");
             var changes = await GetFieldChangesAsync(client, number);
             var childIds = GetChildIds(item);
+            var gitHubIssueIds = GetGitHubLinks(item, _resolvedGitHubConnections);
+            var gitHubIssues = gitHubIssueIds.Select(i => i.ToString()).ToArray();
 
             foreach (var childId in childIds)
                 Enqueue(new AzureDevOpsWorkItemId(server, childId));
 
+            foreach (var issueId in gitHubIssueIds)
+                queue.Enqueue(issueId);
+            
             var workItem = new AzureDevOpsWorkItem(
                 server,
                 number,
@@ -200,7 +210,8 @@ public sealed class AzureDevOpsCrawler
                 itemUrl,
                 tags,
                 changes,
-                childIds
+                childIds,
+                gitHubIssues
             );
 
             _workItemById.Add(workItem.Id, workItem);
@@ -247,8 +258,74 @@ public sealed class AzureDevOpsCrawler
 
             return item.Relations.Where(r => r.Rel == "System.LinkTypes.Hierarchy-Forward")
                                  .Select(r => new Uri(r.Url))
-                                 .Select(u => int.Parse(u.Segments.Last())).ToArray();
+                                 .Select(u => int.Parse(u.Segments.Last()))
+                                 .ToArray();
         }
+
+        static GitHubIssueId[] GetGitHubLinks(WorkItem item, Dictionary<Guid, GitHubRepoId> connections)
+        {
+            if (item.Relations is null)
+                return Array.Empty<GitHubIssueId>();
+            
+            return item.Relations.Select(r => GetIssueId(r, connections))
+                .Where(i => i is not null)
+                .Select(i => i!.Value)
+                .ToArray();
+        }
+
+        static GitHubIssueId? GetIssueId(WorkItemRelation relation, Dictionary<Guid, GitHubRepoId> connections)
+        {
+            if (TryParseGitHubLink(relation, out var connectionId, out var issueNumber))
+            {
+                var repoId = ResolveGitHubOwnerAndRepo(connectionId, connections);
+                if (repoId is not null)
+                    return new GitHubIssueId(repoId.Value, issueNumber);
+            }
+
+            return null;
+        }
+        
+        static bool TryParseGitHubLink(WorkItemRelation relation, out Guid connectionId, out int issueNumber)
+        {
+            if (relation.Rel == "ArtifactLink")
+            {
+                const string Prefix = "vstfs:///GitHub/Issue/";
+                if (relation.Url.StartsWith(Prefix))
+                {
+                    var guidAndNumber = relation.Url[Prefix.Length..];
+                    var parts = guidAndNumber.Split("%2F");
+                    if (parts.Length == 2)
+                    {
+                        return Guid.TryParse(parts[0], out connectionId) &
+                               int.TryParse(parts[1], out issueNumber);
+                    }
+                }
+            }
+
+            connectionId = default;
+            issueNumber = default;
+            return false;
+        }
+    }
+
+    private static GitHubRepoId? ResolveGitHubOwnerAndRepo(Guid connectionId, Dictionary<Guid, GitHubRepoId> connections)
+    {
+        if (connections.TryGetValue(connectionId, out var existing))
+            return existing;
+
+        // TODO: It would be better to resolve this from AzDO, but sadly we don't know how to do this yet.
+
+        var result = connectionId.ToString() switch
+        {
+            "98f3525e-47a9-4289-a67d-0e261d8901a4" => new GitHubRepoId("dotnet", "msbuild"),
+            "89d615c3-6d45-4ca5-86fd-67be3ed733f6" => new GitHubRepoId("dotnet", "sdk"),
+            _ => (GitHubRepoId?)null
+        };
+
+        if (result is null)
+            Console.WriteLine($"warning: couldn't resolve GitHub connection {connectionId}");
+        
+        return result;
     }
 
     private WorkItemTrackingHttpClient GetClient(string serverUrl)
@@ -416,6 +493,7 @@ public sealed class AzureDevOpsCrawler
         _queriesByWorkItemId.Clear();
 
         _clientByServerUrl.Clear();
+        _resolvedGitHubConnections.Clear();
 
         foreach (var workItem in workItems)
         {
@@ -427,7 +505,7 @@ public sealed class AzureDevOpsCrawler
         }
     }
 
-    public Task UpdateAsync()
+    public Task UpdateAsync(IWorkspaceCrawlerQueue queue)
     {
         // Snapshot IDs of all queries and items we have crawled
         //
@@ -447,6 +525,8 @@ public sealed class AzureDevOpsCrawler
         _workItemById.Clear();
         _queriesByWorkItemId.Clear();
 
+        _resolvedGitHubConnections.Clear();
+
         // ...and re-queue all queries and items and crawl them again.
 
         foreach (var query in queries)
@@ -455,7 +535,7 @@ public sealed class AzureDevOpsCrawler
         foreach (var item in items)
             Enqueue(item);
 
-        return CrawlPendingAsync();
+        return CrawlPendingAsync(queue);
     }
 
     public void GetSnapshot(out IReadOnlyList<AzureDevOpsWorkItem> workitems)

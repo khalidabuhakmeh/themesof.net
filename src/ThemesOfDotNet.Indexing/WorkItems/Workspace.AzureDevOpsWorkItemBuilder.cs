@@ -53,6 +53,9 @@ public sealed partial class Workspace
                     var queryIdText = queryId.ToString();
                     _workItemBuilder.AddVirtualParent(itemIdText, queryIdText);
                 }
+
+                foreach (var childIdText in azureDevOpsWorkItem.GitHubIssues)
+                    _workItemBuilder.AddChild(itemIdText, childIdText);
             }
 
             foreach (var azureDevOpsWorkItem in azureDevOpsWorkItems)

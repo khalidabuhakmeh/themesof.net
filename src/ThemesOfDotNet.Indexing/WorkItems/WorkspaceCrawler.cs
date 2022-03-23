@@ -57,7 +57,7 @@ public sealed class WorkspaceCrawler : IWorkspaceCrawlerQueue
                _azureDevOpsCrawler.HasPendingWork)
         {
             await _gitHubCrawler.CrawlPendingAsync(this);
-            await _azureDevOpsCrawler.CrawlPendingAsync();
+            await _azureDevOpsCrawler.CrawlPendingAsync(this);
         }
     }
 
@@ -97,7 +97,7 @@ public sealed class WorkspaceCrawler : IWorkspaceCrawlerQueue
 
     public async Task UpdateAzureDevOpsAsync()
     {
-        await _azureDevOpsCrawler.UpdateAsync();
+        await _azureDevOpsCrawler.UpdateAsync(this);
         await CrawlPendingAsync();
 
         await _gitHubCrawler.SaveAsync();

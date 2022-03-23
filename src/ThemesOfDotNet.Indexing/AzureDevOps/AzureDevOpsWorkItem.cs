@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using ThemesOfDotNet.Indexing.GitHub;
 
 namespace ThemesOfDotNet.Indexing.AzureDevOps;
 
@@ -22,9 +23,9 @@ public sealed class AzureDevOpsWorkItem
                                string url,
                                IReadOnlyList<string> tags,
                                IReadOnlyList<AzureDevOpsFieldChange> changes,
-                               IReadOnlyList<int> childNumbers)
+                               IReadOnlyList<int> childNumbers,
+                               IReadOnlyList<string>? gitHubIssues)
     {
-
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(title);
@@ -34,6 +35,8 @@ public sealed class AzureDevOpsWorkItem
         ArgumentNullException.ThrowIfNull(tags);
         ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(childNumbers);
+        //ArgumentNullException.ThrowIfNull(gitHubIssues);
+
         Server = server;
         Number = number;
         Type = type;
@@ -53,6 +56,7 @@ public sealed class AzureDevOpsWorkItem
         Tags = tags;
         Changes = changes;
         ChildNumbers = childNumbers;
+        GitHubIssues = gitHubIssues ?? Array.Empty<string>();
         Queries = Array.Empty<AzureDevOpsQueryId>();
     }
 
@@ -76,6 +80,7 @@ public sealed class AzureDevOpsWorkItem
     public IReadOnlyList<AzureDevOpsFieldChange> Changes { get; }
     public IReadOnlyList<int> ChildNumbers { get; }
     public IReadOnlyList<AzureDevOpsQueryId> Queries { get; set; }
+    public IReadOnlyList<string> GitHubIssues { get; }
 
     [JsonIgnore]
     public AzureDevOpsWorkItemId Id => new(Server, Number);
