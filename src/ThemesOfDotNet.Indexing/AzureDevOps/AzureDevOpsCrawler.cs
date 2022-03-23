@@ -151,7 +151,7 @@ public sealed class AzureDevOpsCrawler
         {
             var server = client.BaseAddress.ToString();
             if (server.EndsWith('/'))
-                server = server.Substring(0, server.Length - 1);
+                server = server[..^1];
 
             var number = item.Id!.Value;
             var id = new AzureDevOpsWorkItemId(server, number);
@@ -208,48 +208,33 @@ public sealed class AzureDevOpsCrawler
 
         static string? GetFieldAsString(WorkItem item, string fieldName)
         {
-            if (item.Fields.TryGetValue<string>(fieldName, out var value))
-                return value;
-            else
-                return null;
+            return item.Fields.TryGetValue<string>(fieldName, out var value) ? value : null;
         }
 
         static DateTime? GetFieldAsDateTime(WorkItem item, string fieldName)
         {
-            if (item.Fields.TryGetValue<DateTime>(fieldName, out var value))
-                return value;
-            else
-                return null;
+            return item.Fields.TryGetValue<DateTime>(fieldName, out var value) ? value : null;
         }
 
         static long? GetFieldAsInt64(WorkItem item, string fieldName)
         {
-            if (item.Fields.TryGetValue<long>(fieldName, out var value))
-                return value;
-            else
-                return null;
+            return item.Fields.TryGetValue<long>(fieldName, out var value) ? value : null;
         }
 
         static string? GetFieldAsAlias(WorkItem item, string fieldName)
         {
-            if (item.Fields.TryGetValue<IdentityRef>(fieldName, out var value))
-                return GetAlias(value);
-            else
-                return null;
+            return item.Fields.TryGetValue<IdentityRef>(fieldName, out var value) ? GetAlias(value) : null;
         }
 
         static string[] GetFieldAsTags(WorkItem item, string fieldName)
         {
-            if (item.Fields.TryGetValue<string>(fieldName, out var value))
-                return ParseTags(value);
-            else
-                return Array.Empty<string>();
+            return item.Fields.TryGetValue<string>(fieldName, out var value) ? ParseTags(value) : Array.Empty<string>();
         }
 
         static string GetUrl(WorkItem item)
         {
-            return item.Links.Links.Where(l => l.Key == "html")
-                                   .Select(l => l.Value)
+            return item.Links.Links.Where(kv => kv.Key == "html")
+                                   .Select(kv => kv.Value)
                                    .OfType<ReferenceLink>()
                                    .Select(l => l.Href)
                                    .SingleOrDefault() ?? "";
@@ -260,19 +245,9 @@ public sealed class AzureDevOpsCrawler
             if (item.Relations is null)
                 return Array.Empty<int>();
 
-            var result = new List<int>();
-
-            foreach (var link in item.Relations)
-            {
-                if (link.Rel != "System.LinkTypes.Hierarchy-Forward")
-                    continue;
-
-                var url = new Uri(link.Url);
-                var number = int.Parse(url.Segments.Last());
-                result.Add(number);
-            }
-
-            return result.ToArray();
+            return item.Relations.Where(r => r.Rel == "System.LinkTypes.Hierarchy-Forward")
+                                 .Select(r => new Uri(r.Url))
+                                 .Select(u => int.Parse(u.Segments.Last())).ToArray();
         }
     }
 
@@ -335,7 +310,7 @@ public sealed class AzureDevOpsCrawler
             var when = workItemUpdate.RevisedDate;
 
             // It seems the actual date is usually stored in this field.
-            // In fact, RevisedDate is somtimes 12/31/9999.
+            // In fact, RevisedDate is sometimes 12/31/9999.
             if (workItemUpdate.Fields.TryGetValue("System.ChangedDate", out var changedDateUpdate))
                 when = (DateTime)changedDateUpdate.NewValue;
 
@@ -364,13 +339,11 @@ public sealed class AzureDevOpsCrawler
                         {
                             case null:
                             case string:
-                            //case int:
                             case long:
                                 return value;
                             case IdentityRef identityRef:
                                 return GetAlias(identityRef);
                             default:
-                                System.Diagnostics.Debugger.Break();
                                 return null;
                         }
                     }
@@ -389,7 +362,7 @@ public sealed class AzureDevOpsCrawler
         var email = identityRef.UniqueName;
         var indexOfAt = email.IndexOf('@');
         return indexOfAt >= 0
-            ? email.Substring(0, indexOfAt)
+            ? email[..indexOfAt]
             : email;
     }
 
@@ -424,10 +397,7 @@ public sealed class AzureDevOpsCrawler
 
     private static string[] ParseTags(string? text)
     {
-        if (string.IsNullOrEmpty(text))
-            return Array.Empty<string>();
-        else
-            return text.Split(';');
+        return string.IsNullOrEmpty(text) ? Array.Empty<string>() : text.Split(';');
     }
 
     // Incremental updates
