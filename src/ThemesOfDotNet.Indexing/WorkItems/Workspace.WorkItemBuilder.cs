@@ -75,10 +75,10 @@ public sealed partial class Workspace
             workItems = _workItemById.Values.OrderBy(wi => wi).ToArray();
 
             parentsByChild = _parentIdsByChildId.ToDictionary(kv => _workItemById[kv.Key],
-                                                              kv => (IReadOnlyList<WorkItem>)kv.Value.Select(id => _workItemById[id]).ToArray());
+                                                              kv => (IReadOnlyList<WorkItem>)kv.Value.Select(id => _workItemById[id]).OrderBy(wi => wi).ToArray());
 
             childrenByParent = _childIdsByParentId.ToDictionary(kv => _workItemById[kv.Key],
-                                                                kv => (IReadOnlyList<WorkItem>)kv.Value.Select(id => _workItemById[id]).ToArray());
+                                                                kv => (IReadOnlyList<WorkItem>)kv.Value.Select(id => _workItemById[id]).OrderBy(wi => wi).ToArray());
 
             diagnostics = _diagnostics.ToArray();
         }
