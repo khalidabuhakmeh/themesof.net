@@ -95,9 +95,27 @@ public sealed class WorkspaceCrawler : IWorkspaceCrawlerQueue
         return result;
     }
 
+    public async Task UpdateGitHubAsync(GitHubIssueId issueId)
+    {
+        _gitHubCrawler.Enqueue(issueId, true);
+        await CrawlPendingAsync();
+
+        await _gitHubCrawler.SaveAsync();
+        await _azureDevOpsCrawler.SaveAsync();
+    }
+
     public async Task UpdateAzureDevOpsAsync()
     {
         await _azureDevOpsCrawler.UpdateAsync(this);
+        await CrawlPendingAsync();
+
+        await _gitHubCrawler.SaveAsync();
+        await _azureDevOpsCrawler.SaveAsync();
+    }
+
+    public async Task UpdateAzureDevOpsAsync(AzureDevOpsWorkItemId workItemId)
+    {
+        _azureDevOpsCrawler.Enqueue(workItemId, true);
         await CrawlPendingAsync();
 
         await _gitHubCrawler.SaveAsync();

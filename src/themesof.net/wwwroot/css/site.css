@@ -342,6 +342,15 @@ thead.sticky-top {
         margin-left: 0px;
     }
 
+.gh-issue-menu {
+    visibility: hidden;
+    align-self: start;
+}
+    
+.gh-issue:hover .gh-issue-menu {
+    visibility: visible;
+}
+    
 /* Roadmap */
 
 tr.muted {

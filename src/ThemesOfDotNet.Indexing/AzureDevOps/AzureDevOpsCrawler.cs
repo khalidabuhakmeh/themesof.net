@@ -46,8 +46,15 @@ public sealed class AzureDevOpsCrawler
             _pendingQueries.Add(query);
     }
 
-    public void Enqueue(AzureDevOpsWorkItemId item)
+    public void Enqueue(AzureDevOpsWorkItemId item, bool force = false)
     {
+        if (force)
+        {
+            _workItemById.Remove(item);
+            _queriesByWorkItemId.Remove(item);
+            _crawledItems.Remove(item);
+        }
+        
         if (_crawledItems.Add(item))
             _pendingItems.Add(item);
     }

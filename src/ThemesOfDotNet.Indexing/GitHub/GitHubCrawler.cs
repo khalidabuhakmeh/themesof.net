@@ -57,10 +57,25 @@ public sealed class GitHubCrawler
 
     public bool HasPendingWork => _pendingIssues.Count > 0;
 
-    public void Enqueue(GitHubIssueId issueId)
+    public void Enqueue(GitHubIssueId issueId, bool force = false)
     {
-        if (FindCrawledIssue(issueId) is null)
+        if (force)
+        {
+            var existingIssue = FindCrawledIssue(issueId); 
+            if (existingIssue is not null)
+            {
+                // NOTE: Don't use issueId since it might have been transferred.
+                var (repoId, issueNumber) = existingIssue.GetId();
+                var repo = _repoById[repoId];
+                repo.Issues.Remove(issueNumber);
+            }
+
             _pendingIssues.Add(issueId);
+        }
+        else if (FindCrawledIssue(issueId) is null)
+        {
+            _pendingIssues.Add(issueId);
+        }
     }
 
     private static void EnqueueReferencedItems(IEnumerable<GitHubIssue> issues, IWorkspaceCrawlerQueue queue)

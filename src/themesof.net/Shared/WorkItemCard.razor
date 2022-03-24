@@ -1,4 +1,6 @@
 ﻿@using ThemesOfDotNet.Indexing.WorkItems
+@using ThemesOfDotNet.Indexing.GitHub
+@using ThemesOfDotNet.Indexing.AzureDevOps
 
 @{
     var isMuted = WorkItem.IsBottomUp;
@@ -89,12 +91,35 @@
             }
         </div>
     </div>
+    <AuthorizeView>
+        <Authorized>
+            <div class="gh-issue-menu">
+                <button class="btn btn-link ml-3" title="Queue refresh" onclick="@QueueRefresh"><span class="oi oi-reload"></span></button>
+            </div>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 @code {
+    [Inject]
+    public WorkspaceService WorkspaceService { get; set; } = null!;
+    
     [Parameter]
     public WorkItem WorkItem { get; set; } = null!;
 
     [CascadingParameter(Name = "ChangeGlyphsSince")]
     public DateTimeOffset? ChangeGlyphsSince { get; set; }
+
+    private void QueueRefresh()
+    {
+        switch (WorkItem.Original)
+        {
+            case GitHubIssue gitHubIssue:
+                WorkspaceService.UpdateGitHub(gitHubIssue.GetId());
+                break;
+            case AzureDevOpsWorkItem azureDevOpsWorkItem:
+                WorkspaceService.UpdateAzureDevOps(azureDevOpsWorkItem.Id);
+                break;
+        }
+    }
 }

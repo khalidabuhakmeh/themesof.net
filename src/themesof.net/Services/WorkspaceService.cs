@@ -64,17 +64,27 @@ public sealed class WorkspaceService : IHostedService
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        Post(new UpdateGitHubWorkspaceMessage(message));
+        Post(new UpdateGitHubMessage(message));
+    }
+
+    public void UpdateGitHub(GitHubIssueId id)
+    {
+        Post(new UpdateGitHubIssueMessage(id));
     }
 
     public void UpdateAzureDevOps()
     {
-        Post(new UpdateAzureDevOpsWorkspaceMessage());
+        Post(new UpdateAzureDevOpsMessage());
+    }
+
+    public void UpdateAzureDevOps(AzureDevOpsWorkItemId id)
+    {
+        Post(new UpdateAzureDevOpsWorkItemMessage(id));
     }
 
     public void UpdateOspo()
     {
-        Post(new UpdateOspoWorkspaceMessage());
+        Post(new UpdateOspoMessage());
     }
 
     private void UpdateWorkspace()
@@ -138,7 +148,7 @@ public sealed class WorkspaceService : IHostedService
                 {
                     switch (message)
                     {
-                        case UpdateGitHubWorkspaceMessage updateGitHub:
+                        case UpdateGitHubMessage updateGitHub:
                         {
                             var handled = await _workspaceCrawler.UpdateGitHubAsync(updateGitHub.Message);
                             if (!handled)
@@ -146,13 +156,25 @@ public sealed class WorkspaceService : IHostedService
                             UpdateWorkspace();
                             break;
                         }
-                        case UpdateAzureDevOpsWorkspaceMessage:
+                        case UpdateGitHubIssueMessage issueMessage:
+                        {
+                            await _workspaceCrawler.UpdateGitHubAsync(issueMessage.IssueId);
+                            UpdateWorkspace();
+                            break;
+                        }
+                        case UpdateAzureDevOpsMessage:
                         {
                             await _workspaceCrawler.UpdateAzureDevOpsAsync();
                             UpdateWorkspace();
                             break;
                         }
-                        case UpdateOspoWorkspaceMessage:
+                        case UpdateAzureDevOpsWorkItemMessage workItemMessage:
+                        {
+                            await _workspaceCrawler.UpdateAzureDevOpsAsync(workItemMessage.WorkItemId);
+                            UpdateWorkspace();
+                            break;
+                        }
+                        case UpdateOspoMessage:
                         {
                             await _workspaceCrawler.UpdateOspoAsync();
                             UpdateWorkspace();
@@ -172,10 +194,10 @@ public sealed class WorkspaceService : IHostedService
     {
         public abstract override string ToString();
     }
-
-    private sealed class UpdateGitHubWorkspaceMessage : WorkspaceMessage
+    
+    private sealed class UpdateGitHubMessage : WorkspaceMessage
     {
-        public UpdateGitHubWorkspaceMessage(GitHubEventMessage message)
+        public UpdateGitHubMessage(GitHubEventMessage message)
         {
             ArgumentNullException.ThrowIfNull(message);
 
@@ -190,19 +212,49 @@ public sealed class WorkspaceService : IHostedService
         }
     }
 
-    private sealed class UpdateAzureDevOpsWorkspaceMessage : WorkspaceMessage
+    private sealed class UpdateGitHubIssueMessage : WorkspaceMessage
     {
+        public UpdateGitHubIssueMessage(GitHubIssueId issueId)
+        {
+            IssueId = issueId;
+        }
+
+        public GitHubIssueId IssueId { get; }
+
         public override string ToString()
         {
-            return "UpdateAzureDevOps";
+            return $"Crawl {IssueId}";
         }
     }
 
-    private sealed class UpdateOspoWorkspaceMessage : WorkspaceMessage
+    private sealed class UpdateAzureDevOpsMessage : WorkspaceMessage
     {
         public override string ToString()
         {
-            return "UpdateOspo";
+            return "Crawl AzureDevOps";
+        }
+    }
+    
+    private sealed class UpdateAzureDevOpsWorkItemMessage : WorkspaceMessage
+    {
+        public UpdateAzureDevOpsWorkItemMessage(AzureDevOpsWorkItemId workItemId)
+        {
+            WorkItemId = workItemId;
+        }
+
+        public AzureDevOpsWorkItemId WorkItemId { get; }
+
+        public override string ToString()
+        {
+            return $"Crawl {WorkItemId}";
+        }
+    }
+
+    private sealed class UpdateOspoMessage : WorkspaceMessage
+    {
+        public override string ToString()
+        {
+            return "Crawl OSPO";
         }
     }
 }
