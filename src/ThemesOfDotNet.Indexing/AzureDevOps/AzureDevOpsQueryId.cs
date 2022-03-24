@@ -53,7 +53,7 @@ public record struct AzureDevOpsQueryId(string ServerUrl, string Id)
         if (string.IsNullOrEmpty(text))
             return false;
 
-        var match = Regex.Match(text, @"(?<ServerUrl>https?://[a-zA-Z0-9._]+)(/(?<Project>[a-zA-Z0-9._]+))?/_queries/query(-edit)?/(?<QueryId>[a-zA-Z0-9-]+)", RegexOptions.IgnorePatternWhitespace);
+        var match = Regex.Match(text, @"(?<ServerUrl>(https?://[a-z0-9_]+.visualstudio.com)|(https?://dev.azure.com/[a-z0-9_]+))/(([a-z0-9._]+)/)*_queries/query(-edit)?/(?<QueryId>[a-zA-Z0-9-]+)", RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
 
         if (!match.Success)
             return false;
