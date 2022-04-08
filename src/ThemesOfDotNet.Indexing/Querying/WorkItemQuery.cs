@@ -222,4 +222,20 @@ public sealed class WorkItemQuery : Query<WorkItem>
     {
         return workItem.Priority is null;
     }
+
+    [QueryHandler("label")]
+    private static bool HasLabel(WorkItem workItem, string value)
+    {
+        switch (workItem.Original)
+        {
+            case GitHubIssue gh:
+                return gh.Labels.Any(l => string.Equals(l.Name, value, StringComparison.OrdinalIgnoreCase));
+
+            case AzureDevOps.AzureDevOpsWorkItem wi:
+                return wi.Tags.Any(t => string.Equals(t, value, StringComparison.OrdinalIgnoreCase));
+
+            default:
+                return false;
+        }
+    }
 }
