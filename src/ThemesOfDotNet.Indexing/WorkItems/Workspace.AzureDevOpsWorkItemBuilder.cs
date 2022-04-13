@@ -64,7 +64,7 @@ public sealed partial class Workspace
                 var url = azureDevOpsWorkItem.Url;
                 var isPrivate = true;
                 var isBottomUp = IsBottomUp(azureDevOpsWorkItem.Tags);
-                var state = ConvertState(azureDevOpsWorkItem.State);
+                var state = ConvertState(azureDevOpsWorkItem.State, azureDevOpsWorkItem.Resolution);
                 var kind = ConvertKind(azureDevOpsWorkItem.Type);
                 var title = azureDevOpsWorkItem.Title;
                 var milestone = ConvertMilestone(azureDevOpsWorkItem.Milestone, azureDevOpsWorkItem.Target);
@@ -107,7 +107,7 @@ public sealed partial class Workspace
                                  string.Equals(t, Constants.LabelContinuousImprovement, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static WorkItemState ConvertState(string state)
+        private static WorkItemState ConvertState(string state, string? resolution)
         {
             if (string.Equals(state, "Proposed", StringComparison.OrdinalIgnoreCase))
                 return WorkItemState.Proposed;
@@ -123,6 +123,13 @@ public sealed partial class Workspace
 
             if (string.Equals(state, "Completed", StringComparison.OrdinalIgnoreCase))
                 return WorkItemState.Completed;
+
+            if (string.Equals(state, "Closed", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(resolution, "Fixed", StringComparison.OrdinalIgnoreCase))
+                return WorkItemState.Completed;
+
+            if (string.Equals(state, "Closed", StringComparison.OrdinalIgnoreCase))
+                return WorkItemState.Cut;
 
             return WorkItemState.Proposed;
         }
@@ -341,6 +348,7 @@ public sealed partial class Workspace
             private string _type;
             private string _title;
             private string _state;
+            private string? _resolution;
             private long? _priority;
             private string? _cost;
             private string? _milestone;
@@ -355,6 +363,7 @@ public sealed partial class Workspace
                 _type = workItem.Type;
                 _title = workItem.Title;
                 _state = workItem.State;
+                _resolution = workItem.Resolution;
                 _priority = workItem.Priority;
                 _cost = workItem.Cost;
                 _milestone = workItem.Milestone;
@@ -377,6 +386,9 @@ public sealed partial class Workspace
                         break;
                     case AzureDevOpsField.State:
                         _state = (string)change.From!;
+                        break;
+                    case AzureDevOpsField.Resolution:
+                        _resolution = (string)change.From!;
                         break;
                     case AzureDevOpsField.Priority:
                         _priority = change.From as long?;
@@ -421,7 +433,7 @@ public sealed partial class Workspace
 
             public WorkItemState GetState()
             {
-                return ConvertState(_state);
+                return ConvertState(_state, _resolution);
             }
 
             public WorkItemKind GetKind()

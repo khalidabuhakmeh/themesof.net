@@ -181,6 +181,7 @@ public sealed class AzureDevOpsCrawler
             var type = GetFieldAsString(item, "System.WorkItemType")!;
             var title = GetFieldAsString(item, "System.Title")!;
             var state = GetFieldAsString(item, "System.State")!;
+            var resolution = GetFieldAsString(item, "Microsoft.DevDiv.ResolutionBug");
             var priority = GetFieldAsInt64(item, "Microsoft.VSTS.Common.Priority");
             var cost = GetFieldAsString(item, "Microsoft.DevDiv.TshirtCosting");
             var release = GetFieldAsString(item, "Microsoft.eTools.Bug.Release");
@@ -210,6 +211,7 @@ public sealed class AzureDevOpsCrawler
                 type,
                 title,
                 state,
+                resolution,
                 priority,
                 cost,
                 milestone,
@@ -467,6 +469,8 @@ public sealed class AzureDevOpsCrawler
                 return AzureDevOpsField.Title;
             case "system.state":
                 return AzureDevOpsField.State;
+            case "microsoft.devdiv.resolutionbug":
+                return AzureDevOpsField.Resolution;
             case "microsoft.vsts.common.priority":
                 return AzureDevOpsField.Priority;
             case "microsoft.devdiv.tshirtcosting":

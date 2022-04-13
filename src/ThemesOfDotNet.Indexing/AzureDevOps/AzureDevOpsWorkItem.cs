@@ -10,6 +10,7 @@ public sealed class AzureDevOpsWorkItem
                                string type,
                                string title,
                                string state,
+                               string? resolution,
                                long? priority,
                                string? cost,
                                string? milestone,
@@ -42,6 +43,7 @@ public sealed class AzureDevOpsWorkItem
         Type = type;
         Title = title;
         State = state;
+        Resolution = resolution;
         Priority = priority;
         Cost = cost;
         Milestone = milestone;
@@ -65,6 +67,7 @@ public sealed class AzureDevOpsWorkItem
     public string Type { get; }
     public string Title { get; }
     public string State { get; }
+    public string? Resolution { get; }
     public long? Priority { get; }
     public string? Cost { get; }
     public string? Milestone { get; }

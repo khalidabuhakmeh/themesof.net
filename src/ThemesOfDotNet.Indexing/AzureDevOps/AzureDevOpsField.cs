@@ -11,5 +11,6 @@ public enum AzureDevOpsField
     Target,
     Milestone,
     AssignedTo,
-    Tags
+    Tags,
+    Resolution
 }
