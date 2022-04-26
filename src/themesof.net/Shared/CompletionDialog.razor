@@ -12,7 +12,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <input @ref="_inputRef"
-                           id="lastName" class="form-control" placeholder="Filter"
+                           id="filterText" class="form-control" placeholder="Filter"
                            @bind="FilterText" @bind:event="oninput" @onkeydown="OnKeyDown"></input>
                     <div @ref="_completionListRef"
                          class="completion-list mt-1">
